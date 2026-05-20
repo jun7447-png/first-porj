@@ -1,72 +1,128 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { generateAllTemplates, TEMPLATE_LIST } from "@/lib/templates";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { TEMPLATE_LIST } from "@/lib/templates";
 
 interface GenerateResultsProps {
   files: File[];
   onReset: () => void;
 }
 
-export default function GenerateResults({ files, onReset }: GenerateResultsProps) {
-  const [results, setResults] = useState<(string | null)[]>(
-    Array(TEMPLATE_LIST.length).fill(null)
-  );
-  const [generatingIdx, setGeneratingIdx] = useState(0);
-  const [done, setDone] = useState(false);
-  const cancelled = useRef(false);
+type CardState = {
+  imageUrl: string | null;
+  loading: boolean;
+  error: string | null;
+};
 
+export default function GenerateResults({ files, onReset }: GenerateResultsProps) {
+  const [prompts, setPrompts] = useState<string[]>([]);
+  const [cards, setCards] = useState<CardState[]>(
+    TEMPLATE_LIST.map(() => ({ imageUrl: null, loading: false, error: null }))
+  );
+  const initializedRef = useRef(false);
+
+  // 프롬프트 파일 로드
   useEffect(() => {
-    cancelled.current = false;
-    generateAllTemplates(files, (i, url) => {
-      if (cancelled.current) return;
-      setResults((prev) => {
-        const next = [...prev];
-        next[i] = url;
-        return next;
+    fetch("/api/prompts")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.prompts) setPrompts(data.prompts);
+      })
+      .catch(() => {
+        setPrompts(TEMPLATE_LIST.map(() => "프롬프트를 불러오지 못했습니다."));
       });
-      setGeneratingIdx(i + 1);
-      if (i === TEMPLATE_LIST.length - 1) setDone(true);
+  }, []);
+
+  const generateImage = useCallback(
+    async (index: number, promptText: string) => {
+      if (!files[0]) return;
+
+      setCards((prev) =>
+        prev.map((c, i) => (i === index ? { ...c, loading: true, error: null } : c))
+      );
+
+      const formData = new FormData();
+      formData.append("image", files[0]);
+      formData.append("prompt", promptText);
+
+      try {
+        const res = await fetch("/api/generate", { method: "POST", body: formData });
+        const data = await res.json();
+        if (data.error) {
+          setCards((prev) =>
+            prev.map((c, i) => (i === index ? { ...c, loading: false, error: data.error } : c))
+          );
+        } else {
+          setCards((prev) =>
+            prev.map((c, i) =>
+              i === index ? { ...c, loading: false, imageUrl: data.imageUrl } : c
+            )
+          );
+        }
+      } catch {
+        setCards((prev) =>
+          prev.map((c, i) =>
+            i === index ? { ...c, loading: false, error: "서버 연결에 실패했습니다." } : c
+          )
+        );
+      }
+    },
+    [files]
+  );
+
+  // 프롬프트 로드 완료 시 전체 자동 생성
+  useEffect(() => {
+    if (prompts.length === 0 || initializedRef.current) return;
+    initializedRef.current = true;
+
+    prompts.forEach((prompt, i) => {
+      setTimeout(() => generateImage(i, prompt), i * 800);
     });
-    return () => { cancelled.current = true; };
-  }, [files]);
+  }, [prompts, generateImage]);
+
+  const updatePrompt = (index: number, value: string) => {
+    setPrompts((prev) => prev.map((p, i) => (i === index ? value : p)));
+  };
 
   const downloadOne = (url: string, name: string) => {
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${name}.jpg`;
+    a.download = `${name}.png`;
     a.click();
   };
 
   const downloadAll = () => {
-    results.forEach((url, i) => {
-      if (url) setTimeout(() => downloadOne(url, TEMPLATE_LIST[i].name), i * 200);
+    cards.forEach((card, i) => {
+      if (card.imageUrl) {
+        setTimeout(() => downloadOne(card.imageUrl!, TEMPLATE_LIST[i].name), i * 200);
+      }
     });
   };
 
-  const doneCount = results.filter(Boolean).length;
+  const doneCount = cards.filter((c) => c.imageUrl).length;
+  const allDone = doneCount === TEMPLATE_LIST.length;
 
   return (
-    <div className="p-8 sm:p-10">
+    <div className="p-6 sm:p-8">
       {/* 헤더 */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">
-            {done ? "생성 완료! 🎉" : "상품 이미지 생성 중..."}
+            {allDone ? "생성 완료! 🎉" : "상품 이미지 생성 중..."}
           </h2>
           <p className="mt-1 text-sm text-zinc-400">
-            {done
-              ? `5가지 디자인 템플릿이 모두 완성되었습니다`
+            {allDone
+              ? "모든 이미지가 완성되었습니다. 프롬프트를 수정하고 재실행할 수 있습니다."
               : `${doneCount} / ${TEMPLATE_LIST.length} 생성 중`}
           </p>
         </div>
         <div className="flex gap-2">
-          {done && (
+          {allDone && (
             <button
               onClick={downloadAll}
               className="rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:scale-105"
             >
-              전체 다운로드 (5장)
+              전체 다운로드
             </button>
           )}
           <button
@@ -78,9 +134,9 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
         </div>
       </div>
 
-      {/* 진행 바 */}
-      {!done && (
-        <div className="mb-8 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+      {/* 전체 진행 바 */}
+      {!allDone && (
+        <div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
           <div
             className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-all duration-700"
             style={{ width: `${(doneCount / TEMPLATE_LIST.length) * 100}%` }}
@@ -88,61 +144,106 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
         </div>
       )}
 
-      {/* 카드 그리드 */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {TEMPLATE_LIST.map((t, i) => (
-          <div key={t.id} className="flex flex-col gap-2">
-            {/* 이미지 카드 */}
-            <div className="relative aspect-square overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-              {results[i] ? (
-                <img
-                  src={results[i]!}
-                  alt={t.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2">
-                  {i === generatingIdx ? (
-                    <>
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-400" />
-                      <span className="text-xs text-zinc-500">생성 중…</span>
-                    </>
+      {/* 결과 카드 목록 */}
+      <div className="space-y-5">
+        {TEMPLATE_LIST.map((t, i) => {
+          const card = cards[i];
+          const prompt = prompts[i] ?? "";
+
+          return (
+            <div
+              key={t.id}
+              className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:flex-row sm:gap-6"
+            >
+              {/* 왼쪽: 이미지 */}
+              <div className="flex shrink-0 flex-col gap-2 sm:w-56">
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900">
+                  {card.imageUrl ? (
+                    <img
+                      src={card.imageUrl}
+                      alt={t.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : card.error ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 px-3 text-center">
+                      <span className="text-xl">⚠️</span>
+                      <p className="text-xs text-red-400">{card.error}</p>
+                    </div>
                   ) : (
-                    <>
-                      <span className="text-2xl opacity-15">🖼️</span>
-                      <span className="text-xs text-zinc-700">대기 중</span>
-                    </>
+                    <div className="flex h-full flex-col items-center justify-center gap-2">
+                      {card.loading ? (
+                        <>
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-violet-400" />
+                          <span className="text-xs text-zinc-500">생성 중…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-2xl opacity-20">🖼️</span>
+                          <span className="text-xs text-zinc-700">대기 중</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {card.imageUrl && (
+                    <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs text-green-400 backdrop-blur-sm">
+                      ✓
+                    </div>
                   )}
                 </div>
-              )}
 
-              {/* 완성 뱃지 */}
-              {results[i] && (
-                <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs text-green-400 backdrop-blur-sm">
-                  ✓ 완성
+                {/* 이름 + 다운로드 */}
+                <div>
+                  <p className="text-sm font-semibold text-white">{t.name}</p>
+                  <p className="text-xs text-zinc-500">{t.description}</p>
                 </div>
-              )}
-            </div>
-
-            {/* 템플릿 이름 */}
-            <p className="text-center text-xs font-medium text-zinc-300">{t.name}</p>
-            <p className="text-center text-xs text-zinc-600 leading-tight">{t.description}</p>
-
-            {/* 다운로드 버튼 */}
-            {results[i] ? (
-              <button
-                onClick={() => downloadOne(results[i]!, t.name)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 py-1.5 text-xs text-zinc-400 transition-all hover:border-violet-500/50 hover:text-violet-300"
-              >
-                다운로드
-              </button>
-            ) : (
-              <div className="rounded-lg border border-zinc-800 py-1.5 text-center text-xs text-zinc-700">
-                —
+                {card.imageUrl && (
+                  <button
+                    onClick={() => downloadOne(card.imageUrl!, t.name)}
+                    className="rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-400 transition-all hover:border-violet-500/50 hover:text-violet-300"
+                  >
+                    다운로드
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+
+              {/* 오른쪽: 프롬프트 편집 */}
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium uppercase tracking-widest text-zinc-500">
+                    프롬프트 {i + 1}
+                  </label>
+                  {card.imageUrl && (
+                    <span className="text-xs text-zinc-600">수정 후 재실행 가능</span>
+                  )}
+                </div>
+                <textarea
+                  value={prompt}
+                  onChange={(e) => updatePrompt(i, e.target.value)}
+                  rows={8}
+                  className="flex-1 resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-xs leading-relaxed text-zinc-300 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                  placeholder="프롬프트를 입력하세요..."
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => generateImage(i, prompt)}
+                    disabled={card.loading || !prompt.trim()}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition-all hover:scale-105 hover:shadow-violet-500/35 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {card.loading ? (
+                      <>
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border border-white/40 border-t-white" />
+                        생성 중...
+                      </>
+                    ) : (
+                      "재실행 →"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

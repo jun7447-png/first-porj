@@ -24,7 +24,7 @@ export default function CreateFlow({ onClose }: CreateFlowProps) {
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:items-center"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative my-8 w-full max-w-5xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60">
+      <div className="relative my-8 w-full max-w-6xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60">
         {/* 닫기 버튼 */}
         <button
           onClick={onClose}
