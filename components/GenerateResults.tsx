@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { TEMPLATE_LIST } from "@/lib/templates";
+import { generateCanvasImage } from "@/lib/canvas-templates";
 
 interface GenerateResultsProps {
   files: File[];
@@ -12,12 +13,13 @@ type CardState = {
   imageUrl: string | null;
   loading: boolean;
   error: string | null;
+  isCanvas: boolean;
 };
 
 export default function GenerateResults({ files, onReset }: GenerateResultsProps) {
   const [prompts, setPrompts] = useState<string[]>([]);
   const [cards, setCards] = useState<CardState[]>(
-    TEMPLATE_LIST.map(() => ({ imageUrl: null, loading: false, error: null }))
+    TEMPLATE_LIST.map(() => ({ imageUrl: null, loading: false, error: null, isCanvas: false }))
   );
   const initializedRef = useRef(false);
 
@@ -48,6 +50,18 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
       try {
         const res = await fetch("/api/generate", { method: "POST", body: formData });
         const data = await res.json();
+
+        // API 키 미설정 → Canvas 폴백
+        if (data.fallback) {
+          const canvasUrl = await generateCanvasImage(index, files[0]);
+          setCards((prev) =>
+            prev.map((c, i) =>
+              i === index ? { ...c, loading: false, imageUrl: canvasUrl, isCanvas: true } : c
+            )
+          );
+          return;
+        }
+
         if (data.error) {
           setCards((prev) =>
             prev.map((c, i) => (i === index ? { ...c, loading: false, error: data.error } : c))
@@ -55,7 +69,7 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
         } else {
           setCards((prev) =>
             prev.map((c, i) =>
-              i === index ? { ...c, loading: false, imageUrl: data.imageUrl } : c
+              i === index ? { ...c, loading: false, imageUrl: data.imageUrl, isCanvas: false } : c
             )
           );
         }
@@ -186,8 +200,8 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
                   )}
 
                   {card.imageUrl && (
-                    <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs text-green-400 backdrop-blur-sm">
-                      ✓
+                    <div className={`absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs backdrop-blur-sm ${card.isCanvas ? "text-amber-400" : "text-green-400"}`}>
+                      {card.isCanvas ? "Canvas 미리보기" : "✓ AI 생성"}
                     </div>
                   )}
                 </div>

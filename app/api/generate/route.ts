@@ -4,10 +4,8 @@ import OpenAI, { toFile } from "openai";
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OPENAI_API_KEY가 설정되지 않았습니다." },
-        { status: 500 }
-      );
+      // API 키 미설정 시 클라이언트 Canvas 폴백 신호 반환
+      return NextResponse.json({ fallback: true });
     }
 
     const formData = await req.formData();
