@@ -84,7 +84,14 @@ export default function Home() {
       )}
 
       <footer className="border-t border-zinc-800 py-8 text-center text-sm text-zinc-600">
-        © 2025 SnapPage. All rights reserved.
+        © 2026 SnapPage. All rights reserved.
+        <span className="mx-3">·</span>
+        <a
+          href="/contact"
+          className="transition-colors hover:text-zinc-400"
+        >
+          wish2me@wish2me.com
+        </a>
       </footer>
     </main>
   );
