@@ -6,7 +6,7 @@ interface HeroProps {
 
 export default function Hero({ onStart }: HeroProps) {
   return (
-    <section className="relative flex flex-col items-center justify-center min-h-screen px-6 text-center overflow-hidden">
+    <section className="relative flex flex-col items-center justify-center px-6 pt-32 pb-24 text-center overflow-hidden">
       {/* 배경 글로우 */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-violet-600/20 blur-3xl" />
@@ -42,45 +42,6 @@ export default function Hero({ onStart }: HeroProps) {
           지금 시작하기 →
           <span className="absolute inset-0 -z-10 bg-gradient-to-r from-violet-500 to-cyan-400 opacity-0 transition-opacity group-hover:opacity-100" />
         </button>
-        <button className="rounded-xl border border-zinc-700 bg-zinc-900 px-8 py-3.5 text-base font-medium text-zinc-300 transition-all hover:border-zinc-500 hover:text-white">
-          데모 보기
-        </button>
-      </div>
-
-      {/* 모형 이미지 */}
-      <div className="mt-20 w-full max-w-4xl">
-        <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/60 p-1 shadow-2xl shadow-black/50 backdrop-blur">
-          <div className="flex items-center gap-1.5 px-4 py-3 border-b border-zinc-800">
-            <span className="h-3 w-3 rounded-full bg-red-500/70" />
-            <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
-            <span className="h-3 w-3 rounded-full bg-green-500/70" />
-          </div>
-          <div className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="aspect-square rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/50 flex items-center justify-center"
-              >
-                <span className="text-3xl opacity-30">📷</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-center py-4 gap-3">
-            <div className="h-px w-16 bg-gradient-to-r from-transparent to-violet-500/50" />
-            <span className="text-xs text-zinc-500">AI 처리 중…</span>
-            <div className="h-px w-16 bg-gradient-to-l from-transparent to-cyan-500/50" />
-          </div>
-          <div className="grid grid-cols-2 gap-4 p-6 pt-0">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="aspect-video rounded-xl bg-gradient-to-br from-violet-900/40 to-cyan-900/20 border border-violet-700/30 flex items-center justify-center"
-              >
-                <span className="text-2xl opacity-50">🖼️</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );
