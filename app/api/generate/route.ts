@@ -3,15 +3,20 @@ import OpenAI, { toFile } from "openai";
 
 export const maxDuration = 60;
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://first-porj.vercel.app";
+/** UTF-8 한글 등 멀티바이트 문자가 포함된 body를 안전하게 전송 */
+function jsonBody(obj: unknown): Blob {
+  return new Blob([JSON.stringify(obj)], { type: "application/json" });
+}
 
-const OPENROUTER_HEADERS = {
-  Authorization: `Bearer ${process.env.OPENROUTER_API_KEY ?? ""}`,
-  "HTTP-Referer": SITE_URL,
-  "X-Title": "SnapPage",
-  "Content-Type": "application/json",
-};
+function openRouterHeaders(): HeadersInit {
+  return {
+    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY ?? ""}`,
+    "HTTP-Referer":
+      process.env.NEXT_PUBLIC_SITE_URL ?? "https://first-porj.vercel.app",
+    "X-Title": "SnapPage",
+    "Content-Type": "application/json",
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,9 +41,9 @@ export async function POST(req: NextRequest) {
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ── OpenRouter ────────────────────────────────────────────────────────────
+    // ── OpenRouter: GPT-4o Vision → DALL-E 3 ─────────────────────────────────
     if (hasOpenRouter) {
-      // Step 1: GPT-4o Vision으로 제품 분석 (실패해도 계속 진행)
+      // Step 1: 제품 이미지 분석 (실패해도 계속 진행)
       let productDescription = "";
       try {
         const base64 = buffer.toString("base64");
@@ -48,8 +53,9 @@ export async function POST(req: NextRequest) {
           "https://openrouter.ai/api/v1/chat/completions",
           {
             method: "POST",
-            headers: OPENROUTER_HEADERS,
-            body: JSON.stringify({
+            headers: openRouterHeaders(),
+            // body를 Blob으로 전송 → 멀티바이트 문자 안전 처리
+            body: jsonBody({
               model: "openai/gpt-4o",
               messages: [
                 {
@@ -57,11 +63,14 @@ export async function POST(req: NextRequest) {
                   content: [
                     {
                       type: "image_url",
-                      image_url: { url: `data:${mimeType};base64,${base64}` },
+                      image_url: {
+                        url: `data:${mimeType};base64,${base64}`,
+                      },
                     },
                     {
                       type: "text",
-                      text: "이 제품 이미지를 이미지 생성 AI가 재현할 수 있도록 정확히 묘사해 주세요. 형태, 색상, 소재, 질감, 주요 특징을 포함해 2~3문장으로 설명하세요.",
+                      // 내부 지시문은 영어로 → ByteString 오류 방지
+                      text: "Describe this product precisely for AI image generation: shape, color, material, texture, and key features. Keep it to 2-3 sentences.",
                     },
                   ],
                 },
@@ -77,15 +86,16 @@ export async function POST(req: NextRequest) {
             visionData.choices?.[0]?.message?.content?.trim() ?? "";
         }
       } catch {
-        // 분석 실패 시 빈 설명으로 계속 진행
+        // 분석 실패 시 원본 프롬프트만으로 계속 진행
       }
 
-      // Step 2: DALL-E 3로 이미지 생성 (직접 fetch)
+      // Step 2: DALL-E 3 이미지 생성
       const truncatedPrompt =
         prompt.length > 2500 ? prompt.slice(0, 2500) + "..." : prompt;
+
       const finalPrompt = (
         productDescription
-          ? `[제품 정보] ${productDescription}\n\n${truncatedPrompt}`
+          ? `Product: ${productDescription}\n\n${truncatedPrompt}`
           : truncatedPrompt
       ).slice(0, 4000);
 
@@ -93,8 +103,8 @@ export async function POST(req: NextRequest) {
         "https://openrouter.ai/api/v1/images/generations",
         {
           method: "POST",
-          headers: OPENROUTER_HEADERS,
-          body: JSON.stringify({
+          headers: openRouterHeaders(),
+          body: jsonBody({
             model: "openai/dall-e-3",
             prompt: finalPrompt,
             n: 1,
@@ -107,7 +117,7 @@ export async function POST(req: NextRequest) {
       if (!imageRes.ok) {
         const errBody = await imageRes.text();
         return NextResponse.json(
-          { error: `이미지 생성 실패: ${imageRes.status} ${errBody}` },
+          { error: `이미지 생성 실패 (${imageRes.status}): ${errBody}` },
           { status: 500 }
         );
       }
@@ -115,32 +125,33 @@ export async function POST(req: NextRequest) {
       const imageData = await imageRes.json();
       const b64 = imageData.data?.[0]?.b64_json as string | undefined;
 
-      if (!b64) {
-        // b64_json 없으면 url 시도
-        const url = imageData.data?.[0]?.url as string | undefined;
-        if (url) {
-          const fetched = await fetch(url);
-          const imgBuf = Buffer.from(await fetched.arrayBuffer());
-          const imgMime = fetched.headers.get("content-type") ?? "image/png";
-          return NextResponse.json({
-            imageUrl: `data:${imgMime};base64,${imgBuf.toString("base64")}`,
-          });
-        }
-        return NextResponse.json(
-          { error: "이미지 데이터를 받지 못했습니다." },
-          { status: 500 }
-        );
+      if (b64) {
+        return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
       }
 
-      return NextResponse.json({
-        imageUrl: `data:image/png;base64,${b64}`,
-      });
+      // b64_json 없으면 url로 재시도
+      const remoteUrl = imageData.data?.[0]?.url as string | undefined;
+      if (remoteUrl) {
+        const fetched = await fetch(remoteUrl);
+        const imgBuf = Buffer.from(await fetched.arrayBuffer());
+        const imgMime = fetched.headers.get("content-type") ?? "image/png";
+        return NextResponse.json({
+          imageUrl: `data:${imgMime};base64,${imgBuf.toString("base64")}`,
+        });
+      }
+
+      return NextResponse.json(
+        { error: "이미지 데이터를 받지 못했습니다." },
+        { status: 500 }
+      );
     }
 
     // ── OpenAI 직접 연결 (폴백) ───────────────────────────────────────────────
     if (hasOpenAI) {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const file = await toFile(buffer, imageFile.name || "image.png", {
+      // 파일명 ASCII로 정규화 → Content-Disposition 헤더 오류 방지
+      const safeName = imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
+      const file = await toFile(buffer, safeName, {
         type: imageFile.type || "image/png",
       });
       const response = await openai.images.edit({
@@ -151,9 +162,7 @@ export async function POST(req: NextRequest) {
         size: "1024x1024",
       });
       const b64 = response.data?.[0]?.b64_json;
-      return NextResponse.json({
-        imageUrl: `data:image/png;base64,${b64}`,
-      });
+      return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
     }
 
     return NextResponse.json({ fallback: true });
