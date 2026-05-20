@@ -1,0 +1,119 @@
+
+
+INPUT]
+- reference_image: attached object photo
+- object_category: [{argument name="object_category" default="AUTO"}] # AUTO or: cosmetic, skincare, bottle, kitchen tool, electronic, stationery, accessory, household item, personal care, container, wearable, tool
+- object_view: [{argument name="object_view" default="MATCH_REFERENCE_OR_AUTO_BEST_VIEW"}] # MATCH_REFERENCE_OR_AUTO_BEST_VIEW, front view, top view, side view, 3/4 view, opened view, in-use view, close-up detail view
+- object_state: [{argument name="object_state" default="MATCH_REFERENCE_OR_AUTO_MOST_USEFUL_STATE"}] # MATCH_REFERENCE_OR_AUTO_MOST_USEFUL_STATE, closed, open, opened with parts visible, ready to use, in-use, stored state
+- language: [{argument name="language" default="Korean"}]
+- infographic_goal: [{argument name="infographic_goal" default="HOW_TO_USE"}] # HOW_TO_USE, CARE_CLEAN, SAFETY, QUICK_TIPS, DO_DONT, TROUBLESHOOT
+- output_size: 2000x2000
+- palette: WHITE_BG_BLACK_INK_ONLY
+[1. PURPOSE]
+Create a practical everyday infographic based on the attached object photo.
+Combine:
+1. a photoreal studio-style presentation of the exact object from the reference image, and
+2. black hand-drawn annotation overlays on top. The result should feel like a clean quick-start card or packaging insert.
+[2. CORE BRIEF]
+Use the attached photo as the source of truth for the object’s identity, shape, material impression, and key parts.
+Isolate the main object and present it clearly on a pure white seamless background.
+Use [OBJECT_CATEGORY], [OBJECT_VIEW], [OBJECT_STATE], and [INFOGRAPHIC_GOAL] to choose the most useful instructional presentation.
+Render all visible text only in [LANGUAGE].
+Keep the object photoreal and the overlays as black hand-drawn ink only.
+[3. MUST-HAVES]
+Object:
+- preserve the exact object identity from the attached photo
+- one main object only
+- cleanly isolate it from any distracting background
+- if the reference angle/state is not ideal, keep the same object identity but show the most useful instructional view/state
+- object must stay fully photoreal, clearly visible, and easy to understand
+Overlay:
+- use 6–10 overlays total; reduce to 5–8 if text density gets high
+- prefer fewer, larger, clearer notes over many tiny notes
+- overlays must be practical, everyday-use guidance only
+- allowed overlays: part names, steps 1–4 with arrows, short tips, ✓/✗ do-don’t notes, short safety notes, care/cleaning notes, storage/handling notes, troubleshooting mini-box, time/temperature only if truly practical
+Language:
+- render ALL title, subtitle, labels, steps, callouts, and mini-box text ONLY in [LANGUAGE]
+- no bilingual text, no mixed languages
+- use short everyday wording only
+- if text becomes unstable, simplify to very short reliable words in [LANGUAGE]
+- prefer single-word or two-word labels whenever possible
+Goal logic:
+- HOW_TO_USE: prioritize 3–5 short steps and main actions
+- CARE_CLEAN: prioritize wipe / rinse / dry / store guidance
+- SAFETY: prioritize short warnings and avoid-mistake notes
+- QUICK_TIPS: prioritize 4–6 compact callouts
+- DO_DONT: prioritize paired ✓ / ✗ comparisons
+- TROUBLESHOOT: prioritize 1–3 short “IF ___ → TRY ___” items
+Title:
+- infer the object name from the reference image
+- place the title in a hand-drawn box in one corner
+- add a short 1–3 word subtitle matching [INFOGRAPHIC_GOAL], in [LANGUAGE] only
+[4. CONTEXT]
+Use a pure white seamless studio background with clean even lighting and a soft natural shadow.
+The mood should feel useful, calm, practical, and premium.
+This should look like a real instruction insert, not an ad, blueprint, or technical manual.
+[5. COMPOSITION & LAYOUT]
+Use a balanced 2000×2000 square layout.
+Place the object centered or slightly off-center with wide negative space for annotations.
+Distribute notes evenly around the object.
+Use consistent black line weight with a few thicker strokes for hierarchy.
+Keep arrows clear and connected to exact touch / open / close / clean / store points.
+Do not cover critical object details.
+Troubleshoot layout lock:
+IF [INFOGRAPHIC_GOAL]=TROUBLESHOOT:
+- reserve a fixed mini-box in the BOTTOM-RIGHT corner
+- give it a hand-drawn border and short [LANGUAGE]-only header
+- list 1–3 short items in [LANGUAGE] using: “IF ___ → TRY ___”
+- keep the box clear of the object silhouette
+[6. LIGHT, COLOR & TEXTURE]
+Lighting:
+- soft clean studio lighting
+- even illumination
+- soft natural shadow
+- high micro-contrast for crisp readability
+Color:
+- white background only
+- black annotation lines only
+- black text only
+- no colors, no gradients, no colored icons
+Texture:
+- object surface must remain materially accurate and photoreal
+- overlays must look like real pen or marker ink drawn on top
+- maintain clear separation between photoreal object and ink overlay layer
+[7. CONSTRAINTS]
+- do not stylize the object into a drawing
+- do not render overlays as digital UI
+- do not make the object look sketched or cartoon-like
+- do not merge object and overlay into one illustration style
+- no readable brand names
+- no brand logos
+- no watermark
+- no irrelevant decorative elements
+- no extra objects unless essential for explanation
+- no cluttered layout
+- no engineering dimensions unless truly practical
+- no unnecessary numbers
+- no paragraph text
+- no ad slogans
+- no mixed scripts unless required by [LANGUAGE]
+[8. OUTPUT & FORMAT]
+Output a 2000×2000 ultra-crisp square infographic optimized for social feeds.
+Show:
+- the exact object based on the attached photo
+- white seamless studio background
+- black hand-drawn ink overlay only
+- practical guidance matched to [INFOGRAPHIC_GOAL]
+- all visible text only in [LANGUAGE]
+- the most useful view/state for instruction
+Target style:
+practical product infographic
+reference-based object infographic
+photoreal object
+white studio background
+black ink hand-drawn overlay
+quick-start guide
+clean packaging insert
+minimal instructional layout
+high readability
+social-feed optimized
