@@ -77,7 +77,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         email,
         password,
         options: {
-          emailRedirectTo: typeof window !== "undefined" ? window.location.origin : "",
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
         },
       });
       if (error) {
@@ -98,7 +98,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
       type: "signup",
       email,
       options: {
-        emailRedirectTo: typeof window !== "undefined" ? window.location.origin : "",
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
       },
     });
     if (error) {
