@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import HowItWorks from "@/components/HowItWorks";
-import CreateFlow from "@/components/CreateFlow";
 import AuthModal from "@/components/AuthModal";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export default function Home() {
-  const [showCreate, setShowCreate] = useState(false);
+  const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
@@ -30,7 +30,7 @@ export default function Home() {
 
   const handleStart = () => {
     if (user) {
-      setShowCreate(true);
+      router.push("/generate");
     } else {
       setShowAuth(true);
     }
@@ -38,7 +38,7 @@ export default function Home() {
 
   const handleAuthSuccess = () => {
     setShowAuth(false);
-    setShowCreate(true);
+    router.push("/generate");
   };
 
   const handleLogout = async () => {
@@ -75,7 +75,6 @@ export default function Home() {
       <Features />
       <HowItWorks onStart={handleStart} />
 
-      {showCreate && <CreateFlow onClose={() => setShowCreate(false)} />}
       {showAuth && (
         <AuthModal
           onClose={() => setShowAuth(false)}
@@ -86,10 +85,7 @@ export default function Home() {
       <footer className="border-t border-zinc-800 py-8 text-center text-sm text-zinc-600">
         © 2026 SnapPage. All rights reserved.
         <span className="mx-3">·</span>
-        <a
-          href="/contact"
-          className="transition-colors hover:text-zinc-400"
-        >
+        <a href="/contact" className="transition-colors hover:text-zinc-400">
           wish2me@wish2me.com
         </a>
       </footer>
