@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
-/** UTF-8 한글 등 멀티바이트 문자가 포함된 body를 안전하게 전송 */
+/** UTF-8/한글 포함 body를 Blob으로 안전하게 전송 (ByteString 검증 우회) */
 function jsonBody(obj: unknown): Blob {
   return new Blob([JSON.stringify(obj)], { type: "application/json" });
 }
@@ -17,6 +17,13 @@ function openRouterHeaders(): HeadersInit {
   };
 }
 
+function openAIHeaders(): HeadersInit {
+  return {
+    Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
+    "Content-Type": "application/json",
+  };
+}
+
 /** Pollinations.ai 무료 이미지 생성 (API 키 불필요) */
 async function generateWithPollinations(prompt: string): Promise<string> {
   const safePrompt = prompt.slice(0, 1500);
@@ -27,62 +34,6 @@ async function generateWithPollinations(prompt: string): Promise<string> {
   const buf = Buffer.from(await res.arrayBuffer());
   const mime = res.headers.get("content-type") ?? "image/jpeg";
   return `data:${mime};base64,${buf.toString("base64")}`;
-}
-
-/**
- * 한글 포함 프롬프트를 안전하게 처리하는 UTF-8 멀티파트 바디 생성
- *
- * 배경:
- *   Node.js undici(fetch 구현체)의 FormData는 문자열 값을 ByteString으로
- *   검증한다. 한글(non-Latin1) 문자가 있으면 "character at index N has
- *   a value > 255" 오류가 발생한다.
- *
- * 해결:
- *   FormData 대신 Buffer를 직접 구성하여 프롬프트를 UTF-8 바이트로 인코딩.
- *   undici는 Buffer body에 대해 ByteString 검증을 수행하지 않는다.
- */
-function buildMultipartBody(
-  imageBuffer: Buffer,
-  imageMime: string,
-  imageFilename: string,
-  prompt: string,
-  model = "gpt-image-1",
-  size = "1024x1024"
-): { body: Blob; contentType: string } {
-  const boundary = `SnapPage${Date.now()}${Math.random().toString(36).slice(2)}`;
-  const encoder = new TextEncoder();
-
-  const parts: Buffer[] = [
-    // ── image ──────────────────────────────────────────────────────────────
-    Buffer.from(
-      `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="image"; filename="${imageFilename}"\r\n` +
-        `Content-Type: ${imageMime}\r\n\r\n`
-    ),
-    imageBuffer,
-    // ── prompt (UTF-8 바이트) ──────────────────────────────────────────────
-    Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n`),
-    Buffer.from(encoder.encode(prompt)),
-    // ── model ──────────────────────────────────────────────────────────────
-    Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}`
-    ),
-    // ── n ──────────────────────────────────────────────────────────────────
-    Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="n"\r\n\r\n1`
-    ),
-    // ── size ───────────────────────────────────────────────────────────────
-    Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\n${size}`
-    ),
-    // ── 종료 ───────────────────────────────────────────────────────────────
-    Buffer.from(`\r\n--${boundary}--\r\n`),
-  ];
-
-  return {
-    body: new Blob([Buffer.concat(parts)], { type: "application/octet-stream" }),
-    contentType: `multipart/form-data; boundary=${boundary}`,
-  };
 }
 
 /** prompt 파일의 미치환 템플릿 변수를 실제 값으로 교체 */
@@ -103,8 +54,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const imageFile = formData.get("image") as File | null;
 
-    // base64 인코딩 프롬프트 우선 사용 (ByteString 오류 방지 목적)
-    // 클라이언트가 한글을 UTF-8 → base64 변환해 전송, 서버에서 역변환
+    // 클라이언트가 한글을 UTF-8 → base64로 변환해 전송, 서버에서 역변환
     const promptB64 = formData.get("prompt_b64") as string | null;
     const promptRaw = formData.get("prompt") as string | null;
     const prompt: string | null = promptB64
@@ -120,59 +70,116 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
     const hasOpenAI = !!process.env.OPENAI_API_KEY;
+    const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
 
-    if (!hasOpenRouter && !hasOpenAI) {
+    if (!hasOpenAI && !hasOpenRouter) {
       return NextResponse.json({ fallback: true });
     }
 
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ── OpenAI gpt-image-1 ────────────────────────────────────────────────
+    // ── OpenAI DALL-E 3 ──────────────────────────────────────────────────────
     if (hasOpenAI) {
-      // 1. 템플릿 변수 치환 (prompt5.txt 등)
       const resolvedPrompt = resolvePromptVariables(prompt);
 
-      // 2. 파일명 ASCII 정규화
-      const safeName =
-        imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
+      // Step 1: GPT-4o Vision으로 제품 이미지 분석
+      // (DALL-E 3은 참조 이미지를 직접 받지 않으므로 텍스트 설명으로 대체)
+      let productDescription = "";
+      try {
+        const base64 = buffer.toString("base64");
+        const mimeType = imageFile.type || "image/jpeg";
 
-      // 3. UTF-8 멀티파트 바디 직접 구성 → 한글 포함 프롬프트 안전 전송
-      const { body, contentType } = buildMultipartBody(
-        buffer,
-        imageFile.type || "image/png",
-        safeName,
-        resolvedPrompt
+        // OpenRouter 또는 OpenAI 직접으로 GPT-4o 비전 호출
+        const visionEndpoint = hasOpenRouter
+          ? "https://openrouter.ai/api/v1/chat/completions"
+          : "https://api.openai.com/v1/chat/completions";
+        const visionHeaders = hasOpenRouter
+          ? openRouterHeaders()
+          : openAIHeaders();
+        const visionModel = hasOpenRouter ? "openai/gpt-4o" : "gpt-4o";
+
+        const visionRes = await fetch(visionEndpoint, {
+          method: "POST",
+          headers: visionHeaders,
+          body: jsonBody({
+            model: visionModel,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "image_url",
+                    image_url: { url: `data:${mimeType};base64,${base64}` },
+                  },
+                  {
+                    type: "text",
+                    text: "Describe this product precisely for DALL-E 3 image generation. Include: exact shape, color, material, texture, size impression, and key distinguishing features. Be specific and detailed. 3-4 sentences in English only.",
+                  },
+                ],
+              },
+            ],
+            max_tokens: 300,
+          }),
+        });
+
+        if (visionRes.ok) {
+          const visionData = await visionRes.json();
+          productDescription =
+            visionData.choices?.[0]?.message?.content?.trim() ?? "";
+        }
+      } catch {
+        // 분석 실패 시 프롬프트만으로 계속 진행
+      }
+
+      // Step 2: 최종 프롬프트 구성 (DALL-E 3 한도 4000자)
+      const truncatedPrompt =
+        resolvedPrompt.length > 2000
+          ? resolvedPrompt.slice(0, 2000) + "..."
+          : resolvedPrompt;
+
+      const finalPrompt = (
+        productDescription
+          ? `Product description: ${productDescription}\n\n${truncatedPrompt}`
+          : truncatedPrompt
+      ).slice(0, 4000);
+
+      // Step 3: DALL-E 3 이미지 생성
+      // jsonBody()로 Blob 전송 → ByteString 검증 없이 한글 포함 안전 처리
+      const dalleRes = await fetch(
+        "https://api.openai.com/v1/images/generations",
+        {
+          method: "POST",
+          headers: openAIHeaders(),
+          body: jsonBody({
+            model: "dall-e-3",
+            prompt: finalPrompt,
+            n: 1,
+            size: "1024x1024",
+            quality: "standard",
+            response_format: "b64_json",
+          }),
+        }
       );
 
-      const oaRes = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY!}`,
-          "Content-Type": contentType,
-        },
-        body,
-      });
-
-      if (!oaRes.ok) {
-        const errText = await oaRes.text();
+      if (!dalleRes.ok) {
+        const errText = await dalleRes.text();
         return NextResponse.json(
-          { error: `이미지 생성 실패 (${oaRes.status}): ${errText.slice(0, 400)}` },
+          { error: `DALL-E 3 생성 실패 (${dalleRes.status}): ${errText.slice(0, 400)}` },
           { status: 500 }
         );
       }
 
-      const oaData = await oaRes.json();
-      const b64 = oaData.data?.[0]?.b64_json as string | undefined;
+      const dalleData = await dalleRes.json();
+      const b64 = dalleData.data?.[0]?.b64_json as string | undefined;
 
       if (b64) {
         return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
       }
 
       // b64_json 없으면 url 시도
-      const remoteUrl = oaData.data?.[0]?.url as string | undefined;
+      const remoteUrl = dalleData.data?.[0]?.url as string | undefined;
       if (remoteUrl) {
         const fetched = await fetch(remoteUrl);
         const imgBuf = Buffer.from(await fetched.arrayBuffer());
@@ -188,7 +195,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── OpenRouter: GPT-4o Vision 분석 → Pollinations.ai 이미지 생성 ────────
+    // ── OpenRouter only: GPT-4o Vision → Pollinations.ai ────────────────────
     if (hasOpenRouter) {
       let productDescription = "";
       try {
@@ -212,7 +219,7 @@ export async function POST(req: NextRequest) {
                     },
                     {
                       type: "text",
-                      text: "Describe this product precisely for AI image generation: shape, color, material, texture, and key features. Keep it to 2-3 sentences in English.",
+                      text: "Describe this product precisely for AI image generation: shape, color, material, texture, and key features. 2-3 sentences in English.",
                     },
                   ],
                 },
@@ -228,7 +235,7 @@ export async function POST(req: NextRequest) {
             visionData.choices?.[0]?.message?.content?.trim() ?? "";
         }
       } catch {
-        // 분석 실패 시 원본 프롬프트만으로 계속 진행
+        // 분석 실패 시 원본 프롬프트만으로 진행
       }
 
       const truncatedPrompt =
