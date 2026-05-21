@@ -22,6 +22,13 @@ export default function ToolPage() {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // /tools/5 전용 구조화 입력 상태
+  const isT5 = type === "5";
+  const [t5Title, setT5Title] = useState("올해의 인기 Pick");
+  const [t5Sub, setT5Sub] = useState("");
+  const [t5Review, setT5Review] = useState("");
+  const [t5Total, setT5Total] = useState("");
+
   // 인증 체크 + 기본 프롬프트 로드
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -94,7 +101,12 @@ export default function ToolPage() {
   };
 
   const generate = async () => {
-    if (!file || !prompt.trim()) return;
+    // tool5는 구조화 필드, 나머지는 단순 prompt 사용
+    const activePrompt = isT5
+      ? `${prompt}\n\n제품 타이틀: "${t5Title}"\n서브 코멘트: "${t5Sub}"\n감상/평가: "${t5Review}"\n총합: "${t5Total}"`
+      : prompt;
+
+    if (!file || !activePrompt.trim()) return;
     setLoading(true);
     setError("");
 
@@ -105,7 +117,7 @@ export default function ToolPage() {
 
       // 2. 한글 프롬프트 base64 인코딩 (ByteString 오류 방지)
       const enc = new TextEncoder();
-      const promptBytes = enc.encode(prompt);
+      const promptBytes = enc.encode(activePrompt);
       let bin = "";
       for (const b of promptBytes) bin += String.fromCharCode(b);
       const promptB64 = btoa(bin);
@@ -373,18 +385,77 @@ export default function ToolPage() {
           {/* ── 우측: 프롬프트 (500px 고정, 좌측 컬럼 높이에 맞춤) ─── */}
           <div className="flex flex-col gap-3" style={{ width: 500, flexShrink: 0, minHeight: 0 }}>
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-white">
-                프롬프트
-              </p>
+              <p className="text-sm font-semibold text-white">프롬프트</p>
               <span className="text-xs text-white">직접 수정 가능</span>
             </div>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="이미지 생성 프롬프트를 입력하세요..."
-              className="w-full flex-1 resize-none rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 text-sm leading-relaxed text-zinc-300 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-              style={{ width: 500, overflowY: "auto" }}
-            />
+
+            {isT5 ? (
+              /* ── /tools/5 전용: 2박스 구조화 입력 ── */
+              <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
+                {/* 도움말 */}
+                <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-2.5 text-xs text-violet-300">
+                  💡 해당 내용은 제품에 맞게 수정해서 이미지를 생성하세요.
+                </p>
+
+                {/* 박스 1: 타이틀 + 서브 코멘트 */}
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 flex flex-col gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">타이틀</label>
+                    <input
+                      type="text"
+                      value={t5Title}
+                      onChange={(e) => setT5Title(e.target.value)}
+                      placeholder="예: 올해의 인기 Pick"
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">서브 코멘트</label>
+                    <input
+                      type="text"
+                      value={t5Sub}
+                      onChange={(e) => setT5Sub(e.target.value)}
+                      placeholder="예: 믿을 수 있는 품질, 감동적인 경험"
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
+                </div>
+
+                {/* 박스 2: 감상/평가 + 총합 */}
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 flex flex-col gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">감상 / 평가</label>
+                    <textarea
+                      value={t5Review}
+                      onChange={(e) => setT5Review(e.target.value)}
+                      placeholder="예: 사용해보니 품질이 탁월하고 디자인이 세련됩니다."
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">총합</label>
+                    <textarea
+                      value={t5Total}
+                      onChange={(e) => setT5Total(e.target.value)}
+                      placeholder="예: 강력 추천! 가격 대비 최고의 선택."
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ── 일반 도구: 기존 단일 textarea ── */
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="이미지 생성 프롬프트를 입력하세요..."
+                className="w-full flex-1 resize-none rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 text-sm leading-relaxed text-zinc-300 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                style={{ width: 500, overflowY: "auto" }}
+              />
+            )}
+
             <p className="text-xs text-white">
               ✦ 프롬프트를 수정한 뒤 AI이미지생성 버튼을 눌러 새로운 결과를 확인하세요.
             </p>
