@@ -197,7 +197,7 @@ export default function ToolPage() {
           </svg>
           메인으로
         </Link>
-        <span className="flex items-center gap-2 text-2xl font-bold text-white" style={{ marginTop: 50 }}>
+        <span className="flex items-center gap-2 text-2xl font-bold text-white" style={{ marginTop: 50, marginBottom: 50 }}>
           <span className="text-3xl">{tool.emoji}</span>
           {tool.name}
         </span>
@@ -245,7 +245,7 @@ export default function ToolPage() {
                     <img
                       src={uploadPreview}
                       alt="업로드 이미지"
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain"
                     />
                     <button
                       onClick={(e) => {
@@ -300,7 +300,7 @@ export default function ToolPage() {
                     <img
                       src={resultImage}
                       alt="생성 결과"
-                      className="h-full w-full object-cover transition-opacity hover:opacity-90"
+                      className="h-full w-full object-contain transition-opacity hover:opacity-90"
                     />
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity hover:opacity-100">
                       <div className="flex items-center gap-2 rounded-xl bg-black/60 px-4 py-2 backdrop-blur-sm">
