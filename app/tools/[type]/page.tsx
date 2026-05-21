@@ -208,7 +208,7 @@ export default function ToolPage() {
       </header>
 
       {/* 본문 */}
-      <div className="mx-auto max-w-7xl px-6 py-4">
+      <div className="mx-auto max-w-7xl px-0 py-4">
         <div className="flex flex-col lg:flex-row" style={{ gap: 50 }}>
 
           {/* ── 좌측: 업로드 + 결과 ───────────────────────────────── */}
