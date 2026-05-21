@@ -64,14 +64,21 @@ export default function ToolPage() {
     setLoading(true);
     setError("");
 
-    // 파일명에 한글 등 non-ASCII 문자가 있으면 ASCII로 정규화
-    // → multipart Content-Disposition 헤더 ByteString 오류 방지
+    // 파일명 ASCII 정규화 → Content-Disposition 헤더 ByteString 오류 방지
     const safeName = file.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
     const safeFile = new File([file], safeName, { type: file.type });
 
+    // 한글 프롬프트를 base64로 인코딩 → FormData ByteString 검증 완전 우회
+    // base64는 [A-Za-z0-9+/=] 순수 ASCII만 사용하므로 ByteString 오류 없음
+    const enc = new TextEncoder();
+    const promptBytes = enc.encode(prompt);
+    let bin = "";
+    for (const b of promptBytes) bin += String.fromCharCode(b);
+    const promptB64 = btoa(bin);
+
     const formData = new FormData();
     formData.append("image", safeFile);
-    formData.append("prompt", prompt);
+    formData.append("prompt_b64", promptB64); // base64 인코딩된 프롬프트
 
     try {
       const res = await fetch("/api/generate", { method: "POST", body: formData });

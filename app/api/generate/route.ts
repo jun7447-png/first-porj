@@ -102,7 +102,16 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const imageFile = formData.get("image") as File | null;
-    const prompt = formData.get("prompt") as string | null;
+
+    // base64 인코딩 프롬프트 우선 사용 (ByteString 오류 방지 목적)
+    // 클라이언트가 한글을 UTF-8 → base64 변환해 전송, 서버에서 역변환
+    const promptB64 = formData.get("prompt_b64") as string | null;
+    const promptRaw = formData.get("prompt") as string | null;
+    const prompt: string | null = promptB64
+      ? new TextDecoder("utf-8").decode(
+          Uint8Array.from(atob(promptB64), (c) => c.charCodeAt(0))
+        )
+      : promptRaw;
 
     if (!imageFile || !prompt) {
       return NextResponse.json(
