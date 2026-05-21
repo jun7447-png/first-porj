@@ -59,17 +59,41 @@ export default function ToolPage() {
   };
 
   // 이미지 생성
+  /** 이미지를 Canvas로 리사이즈·압축 (전송 크기 축소 → 타임아웃 방지) */
+  const compressImage = (src: File, maxPx = 1024): Promise<File> =>
+    new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(src);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { naturalWidth: w, naturalHeight: h } = img;
+        if (w > maxPx || h > maxPx) {
+          if (w >= h) { h = Math.round((h / w) * maxPx); w = maxPx; }
+          else        { w = Math.round((w / h) * maxPx); h = maxPx; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => resolve(new File([blob!], "image.jpg", { type: "image/jpeg" })),
+          "image/jpeg", 0.85
+        );
+      };
+      img.src = url;
+    });
+
   const generate = async () => {
     if (!file || !prompt.trim()) return;
     setLoading(true);
     setError("");
 
+    // 이미지 압축 (최대 1024px, JPEG 85%) → 전송 크기 축소로 타임아웃 방지
+    const compressed = await compressImage(file, 1024);
+
     // 파일명 ASCII 정규화 → Content-Disposition 헤더 ByteString 오류 방지
-    const safeName = file.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
-    const safeFile = new File([file], safeName, { type: file.type });
+    const safeFile = new File([compressed], "image.jpg", { type: "image/jpeg" });
 
     // 한글 프롬프트를 base64로 인코딩 → FormData ByteString 검증 완전 우회
-    // base64는 [A-Za-z0-9+/=] 순수 ASCII만 사용하므로 ByteString 오류 없음
     const enc = new TextEncoder();
     const promptBytes = enc.encode(prompt);
     let bin = "";
@@ -78,7 +102,7 @@ export default function ToolPage() {
 
     const formData = new FormData();
     formData.append("image", safeFile);
-    formData.append("prompt_b64", promptB64); // base64 인코딩된 프롬프트
+    formData.append("prompt_b64", promptB64);
 
     try {
       const res = await fetch("/api/generate", { method: "POST", body: formData });
