@@ -56,6 +56,25 @@ export async function POST(req: NextRequest) {
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    // ── OpenAI 최우선: gpt-image-1 (업로드 이미지 직접 참조) ─────────────────
+    if (hasOpenAI) {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const safeName =
+        imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
+      const file = await toFile(buffer, safeName, {
+        type: imageFile.type || "image/png",
+      });
+      const response = await openai.images.edit({
+        model: "gpt-image-1",
+        image: file,
+        prompt,
+        n: 1,
+        size: "1024x1024",
+      });
+      const b64 = response.data?.[0]?.b64_json;
+      return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
+    }
+
     // ── OpenRouter: GPT-4o Vision 분석 → Pollinations.ai 이미지 생성 ────────
     if (hasOpenRouter) {
       // Step 1: GPT-4o로 제품 이미지 분석 (실패해도 계속 진행)
@@ -119,25 +138,6 @@ export async function POST(req: NextRequest) {
             : "이미지 생성에 실패했습니다.";
         return NextResponse.json({ error: errMsg }, { status: 500 });
       }
-    }
-
-    // ── OpenAI 직접 연결 (폴백) ───────────────────────────────────────────────
-    if (hasOpenAI) {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const safeName =
-        imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
-      const file = await toFile(buffer, safeName, {
-        type: imageFile.type || "image/png",
-      });
-      const response = await openai.images.edit({
-        model: "gpt-image-1",
-        image: file,
-        prompt,
-        n: 1,
-        size: "1024x1024",
-      });
-      const b64 = response.data?.[0]?.b64_json;
-      return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
     }
 
     return NextResponse.json({ fallback: true });
