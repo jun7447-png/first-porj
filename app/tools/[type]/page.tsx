@@ -24,10 +24,12 @@ export default function ToolPage() {
 
   // /tools/5 전용 구조화 입력 상태
   const isT5 = type === "5";
-  const [t5Title, setT5Title] = useState("올해의 인기 Pick");
-  const [t5Sub, setT5Sub] = useState("");
-  const [t5Review, setT5Review] = useState("");
-  const [t5Total, setT5Total] = useState("");
+  const [t5Product, setT5Product] = useState("");          // 제품명
+  const [t5Title, setT5Title] = useState("");              // 타이틀
+  const [t5Features, setT5Features] = useState("");        // 제품특징
+  const [t5Hook, setT5Hook] = useState("");                // 후킹 문구
+  const [t5Comment, setT5Comment] = useState("");          // 감성코멘트
+  const [t5CopyLoading, setT5CopyLoading] = useState(false); // 문구 생성 중
 
   // 인증 체크 + 기본 프롬프트 로드
   useEffect(() => {
@@ -103,7 +105,7 @@ export default function ToolPage() {
   const generate = async () => {
     // tool5는 구조화 필드, 나머지는 단순 prompt 사용
     const activePrompt = isT5
-      ? `${prompt}\n\n제품 타이틀: "${t5Title}"\n서브 코멘트: "${t5Sub}"\n감상/평가: "${t5Review}"\n총합: "${t5Total}"`
+      ? `${prompt}\n\n제품명: "${t5Product}"\n타이틀: "${t5Title}"\n제품특징: "${t5Features}"\n후킹 문구: "${t5Hook}"\n감성 코멘트: "${t5Comment}"`
       : prompt;
 
     if (!file || !activePrompt.trim()) return;
@@ -390,14 +392,57 @@ export default function ToolPage() {
             </div>
 
             {isT5 ? (
-              /* ── /tools/5 전용: 2박스 구조화 입력 ── */
+              /* ── /tools/5 전용: 제품명 입력 → ChatGPT 자동 생성 ── */
               <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
+
+                {/* 제품명 입력 + 문구 다시생성 버튼 */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={t5Product}
+                    onChange={(e) => setT5Product(e.target.value)}
+                    placeholder="제품명을 입력하세요 (예: 무선 청소기)"
+                    className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!t5Product.trim()) return;
+                      setT5CopyLoading(true);
+                      try {
+                        const res = await fetch("/api/generate-copy", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ productName: t5Product }),
+                        });
+                        const data = await res.json();
+                        if (data.error) { setError(data.error); return; }
+                        setT5Title(data.title ?? "");
+                        setT5Features(data.features ?? "");
+                        setT5Hook(data.hook ?? "");
+                        setT5Comment(data.comment ?? "");
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "문구 생성 실패");
+                      } finally {
+                        setT5CopyLoading(false);
+                      }
+                    }}
+                    disabled={!t5Product.trim() || t5CopyLoading}
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg transition-all hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t5CopyLoading ? (
+                      <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-white/40 border-t-white" />생성 중...</>
+                    ) : (
+                      <>✦ 제품문구 다시생성</>
+                    )}
+                  </button>
+                </div>
+
                 {/* 도움말 */}
                 <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-2.5 text-xs text-violet-300">
                   💡 해당 내용은 제품에 맞게 수정해서 이미지를 생성하세요.
                 </p>
 
-                {/* 박스 1: 타이틀 + 서브 코멘트 */}
+                {/* 박스 1: 타이틀 + 제품특징 */}
                 <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 flex flex-col gap-4">
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">타이틀</label>
@@ -405,40 +450,40 @@ export default function ToolPage() {
                       type="text"
                       value={t5Title}
                       onChange={(e) => setT5Title(e.target.value)}
-                      placeholder="예: 올해의 인기 Pick"
+                      placeholder="ChatGPT가 자동 생성합니다"
                       className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">서브 코멘트</label>
-                    <input
-                      type="text"
-                      value={t5Sub}
-                      onChange={(e) => setT5Sub(e.target.value)}
-                      placeholder="예: 믿을 수 있는 품질, 감동적인 경험"
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-                    />
-                  </div>
-                </div>
-
-                {/* 박스 2: 감상/평가 + 총합 */}
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 flex flex-col gap-4">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">감상 / 평가</label>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">제품 특징</label>
                     <textarea
-                      value={t5Review}
-                      onChange={(e) => setT5Review(e.target.value)}
-                      placeholder="예: 사용해보니 품질이 탁월하고 디자인이 세련됩니다."
+                      value={t5Features}
+                      onChange={(e) => setT5Features(e.target.value)}
+                      placeholder="ChatGPT가 자동 생성합니다"
                       rows={3}
                       className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                     />
                   </div>
+                </div>
+
+                {/* 박스 2: 후킹 문구 + 감성코멘트 */}
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 flex flex-col gap-4">
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">총합</label>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">후킹 문구</label>
+                    <input
+                      type="text"
+                      value={t5Hook}
+                      onChange={(e) => setT5Hook(e.target.value)}
+                      placeholder="ChatGPT가 자동 생성합니다"
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-zinc-400">감성 코멘트</label>
                     <textarea
-                      value={t5Total}
-                      onChange={(e) => setT5Total(e.target.value)}
-                      placeholder="예: 강력 추천! 가격 대비 최고의 선택."
+                      value={t5Comment}
+                      onChange={(e) => setT5Comment(e.target.value)}
+                      placeholder="ChatGPT가 자동 생성합니다"
                       rows={3}
                       className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                     />
