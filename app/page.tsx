@@ -12,6 +12,7 @@ import type { User } from "@supabase/supabase-js";
 export default function Home() {
   const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
+  const [pendingTool, setPendingTool] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -28,17 +29,19 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleStart = () => {
+  const handleStart = (toolType: string) => {
     if (user) {
-      router.push("/generate");
+      router.push(`/tools/${toolType}`);
     } else {
+      setPendingTool(toolType);
       setShowAuth(true);
     }
   };
 
   const handleAuthSuccess = () => {
     setShowAuth(false);
-    router.push("/generate");
+    router.push(`/tools/${pendingTool ?? "1"}`);
+    setPendingTool(null);
   };
 
   const handleLogout = async () => {
@@ -63,7 +66,7 @@ export default function Home() {
           </>
         ) : (
           <button
-            onClick={() => setShowAuth(true)}
+            onClick={() => { setPendingTool("1"); setShowAuth(true); }}
             className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-sm text-zinc-300 backdrop-blur transition-all hover:border-zinc-500 hover:text-white"
           >
             로그인 / 회원가입
@@ -73,11 +76,11 @@ export default function Home() {
 
       <Hero onStart={handleStart} />
       <Features />
-      <HowItWorks onStart={handleStart} />
+      <HowItWorks />
 
       {showAuth && (
         <AuthModal
-          onClose={() => setShowAuth(false)}
+          onClose={() => { setShowAuth(false); setPendingTool(null); }}
           onSuccess={handleAuthSuccess}
         />
       )}

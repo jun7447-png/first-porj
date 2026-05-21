@@ -21,11 +21,7 @@ const steps = [
   },
 ];
 
-interface HowItWorksProps {
-  onStart: () => void;
-}
-
-export default function HowItWorks({ onStart }: HowItWorksProps) {
+export default function HowItWorks() {
   return (
     <section className="px-6 py-24">
       <div className="mx-auto max-w-5xl">
@@ -62,15 +58,6 @@ export default function HowItWorks({ onStart }: HowItWorksProps) {
           </div>
         </div>
 
-        <div className="mt-20 flex flex-col items-center gap-4">
-          <p className="text-zinc-400">지금 바로 첫 번째 상품 이미지를 만들어 보세요.</p>
-          <button
-            onClick={onStart}
-            className="rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:scale-105 hover:shadow-violet-500/40"
-          >
-            무료로 시작하기 →
-          </button>
-        </div>
       </div>
     </section>
   );
