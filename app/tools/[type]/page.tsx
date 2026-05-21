@@ -59,18 +59,15 @@ export default function ToolPage() {
   };
 
   // 이미지 생성
-  /** 이미지를 Canvas로 리사이즈·압축 (전송 크기 축소 → 타임아웃 방지) */
-  const compressImage = (src: File, maxPx = 1024): Promise<File> =>
+  /** 가로 1200px 기준 리사이즈 + JPEG 85% 압축 */
+  const compressImage = (src: File, maxWidth = 1200): Promise<File> =>
     new Promise((resolve) => {
       const img = new Image();
       const url = URL.createObjectURL(src);
       img.onload = () => {
         URL.revokeObjectURL(url);
         let { naturalWidth: w, naturalHeight: h } = img;
-        if (w > maxPx || h > maxPx) {
-          if (w >= h) { h = Math.round((h / w) * maxPx); w = maxPx; }
-          else        { w = Math.round((w / h) * maxPx); h = maxPx; }
-        }
+        if (w > maxWidth) { h = Math.round((h / w) * maxWidth); w = maxWidth; }
         const canvas = document.createElement("canvas");
         canvas.width = w; canvas.height = h;
         canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
@@ -82,52 +79,68 @@ export default function ToolPage() {
       img.src = url;
     });
 
+  /** 폴링: 완료될 때까지 3초마다 /api/job/[jobId] 조회 */
+  const pollJob = async (jobId: string): Promise<string> => {
+    const MAX = 100; // 최대 5분 (3s × 100)
+    for (let i = 0; i < MAX; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const res = await fetch(`/api/job/${jobId}`);
+      const data = await res.json();
+      if (data.status === "done")   return data.imageUrl as string;
+      if (data.status === "error")  throw new Error(data.error ?? "생성 실패");
+      // pending | processing → 계속 폴링
+    }
+    throw new Error("이미지 생성 시간 초과 (5분)");
+  };
+
   const generate = async () => {
     if (!file || !prompt.trim()) return;
     setLoading(true);
     setError("");
 
-    // 이미지 압축 (최대 1024px, JPEG 85%) → 전송 크기 축소로 타임아웃 방지
-    const compressed = await compressImage(file, 1024);
-
-    // 파일명 ASCII 정규화 → Content-Disposition 헤더 ByteString 오류 방지
-    const safeFile = new File([compressed], "image.jpg", { type: "image/jpeg" });
-
-    // 한글 프롬프트를 base64로 인코딩 → FormData ByteString 검증 완전 우회
-    const enc = new TextEncoder();
-    const promptBytes = enc.encode(prompt);
-    let bin = "";
-    for (const b of promptBytes) bin += String.fromCharCode(b);
-    const promptB64 = btoa(bin);
-
-    const formData = new FormData();
-    formData.append("image", safeFile);
-    formData.append("prompt_b64", promptB64);
-
     try {
-      const res = await fetch("/api/generate", { method: "POST", body: formData });
+      // 1. 가로 1200px 압축 (업로드 크기 최소화)
+      const compressed = await compressImage(file, 1200);
+      const safeFile = new File([compressed], "image.jpg", { type: "image/jpeg" });
 
-      // 응답이 JSON이 아닐 수 있으므로 안전하게 파싱
-      let data: Record<string, unknown>;
-      const contentType = res.headers.get("content-type") ?? "";
-      if (contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        // Vercel 타임아웃·서버 크래시 시 HTML/텍스트 반환 → 오류로 처리
-        const text = await res.text();
-        throw new Error(`서버 오류 (${res.status}): ${text.slice(0, 120)}`);
+      // 2. 한글 프롬프트 base64 인코딩 (ByteString 오류 방지)
+      const enc = new TextEncoder();
+      const promptBytes = enc.encode(prompt);
+      let bin = "";
+      for (const b of promptBytes) bin += String.fromCharCode(b);
+      const promptB64 = btoa(bin);
+
+      const formData = new FormData();
+      formData.append("image", safeFile);
+      formData.append("prompt_b64", promptB64);
+
+      // 3. 비동기 작업 시작 → jobId 즉시 반환
+      const startRes = await fetch("/api/generate/start", {
+        method: "POST",
+        body: formData,
+      });
+
+      const contentType = startRes.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        const text = await startRes.text();
+        throw new Error(`서버 오류 (${startRes.status}): ${text.slice(0, 120)}`);
       }
 
-      if (data.fallback) {
-        // Canvas 폴백 — generateCanvasImage는 클라이언트 전용이므로 동적 import
+      const startData = await startRes.json();
+
+      if (startData.fallback) {
         const { generateCanvasImage } = await import("@/lib/canvas-templates");
         const canvasUrl = await generateCanvasImage(tool!.promptIndex, file);
         setResultImage(canvasUrl);
-      } else if (data.error) {
-        setError(data.error as string);
-      } else {
-        setResultImage(data.imageUrl as string);
+        return;
       }
+      if (startData.error) throw new Error(startData.error as string);
+
+      const { jobId } = startData as { jobId: string };
+
+      // 4. 폴링으로 완료 대기
+      const imageUrl = await pollJob(jobId);
+      setResultImage(imageUrl);
     } catch (e) {
       setError(e instanceof Error ? e.message : "생성 실패. 다시 시도해 주세요.");
     } finally {
@@ -302,9 +315,10 @@ export default function ToolPage() {
                     </div>
                   </>
                 ) : loading ? (
-                  <div className="flex h-full flex-col items-center justify-center gap-3">
+                  <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-400" />
-                    <p className="text-sm text-zinc-500">이미지 생성 중…</p>
+                    <p className="text-sm text-zinc-500">AI 생성 중…</p>
+                    <p className="text-xs text-zinc-700">백그라운드 처리 중입니다<br/>잠시 기다려 주세요 (30~90초)</p>
                   </div>
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
