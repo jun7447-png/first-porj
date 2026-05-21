@@ -376,7 +376,7 @@ export default function ToolPage() {
               <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
                 프롬프트
               </p>
-              <span className="text-xs text-zinc-600">직접 수정 가능</span>
+              <span className="text-xs text-white">직접 수정 가능</span>
             </div>
             <textarea
               value={prompt}
@@ -385,7 +385,7 @@ export default function ToolPage() {
               className="w-full flex-1 resize-none rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 text-sm leading-relaxed text-zinc-300 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
               style={{ minHeight: 320, maxHeight: 900, overflowY: "auto" }}
             />
-            <p className="text-xs text-zinc-700">
+            <p className="text-xs text-white">
               ✦ 프롬프트를 수정한 뒤 AI이미지생성 버튼을 눌러 새로운 결과를 확인하세요.
             </p>
           </div>
