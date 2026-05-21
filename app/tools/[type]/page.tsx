@@ -166,13 +166,14 @@ export default function ToolPage() {
                 원본 이미지
               </p>
               <div
-                className={`relative aspect-square w-full cursor-pointer overflow-hidden rounded-2xl border-2 transition-all ${
+                className={`relative cursor-pointer overflow-hidden rounded-2xl border-2 transition-all ${
                   isDragging
                     ? "border-violet-500 bg-violet-500/10"
                     : uploadPreview
                     ? "border-zinc-700"
                     : "border-dashed border-zinc-700 hover:border-zinc-500 hover:bg-zinc-900/30"
                 }`}
+              style={{ width: 300, height: 300 }}
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={onDrop}
@@ -234,9 +235,10 @@ export default function ToolPage() {
                 생성 결과
               </p>
               <div
-                className={`relative aspect-square w-full overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 ${
+                className={`relative overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 ${
                   resultImage ? "cursor-pointer" : ""
                 }`}
+              style={{ width: 300, height: 300 }}
                 onClick={() => resultImage && setLightboxOpen(true)}
               >
                 {resultImage ? (
