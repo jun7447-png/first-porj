@@ -58,41 +58,61 @@ export async function POST(req: NextRequest) {
 
     // ── OpenAI 최우선: gpt-image-1 (업로드 이미지 직접 참조) ─────────────────
     if (hasOpenAI) {
-      // 한글 등 non-ASCII 프롬프트 → 영어로 번역 후 전달 (ByteString 오류 방지)
-      // SDK 내부 multipart 처리 시 non-ASCII가 헤더에 침투하는 문제를 원천 차단
-      let safePrompt = prompt;
-      if (/[^\x00-\x7F]/.test(prompt) && hasOpenRouter) {
-        try {
-          const transRes = await fetch(
-            "https://openrouter.ai/api/v1/chat/completions",
-            {
-              method: "POST",
-              headers: openRouterHeaders(),
-              body: jsonBody({
-                model: "openai/gpt-4o",
-                messages: [
-                  {
-                    role: "user",
-                    content:
-                      "Translate the following image generation prompt to English. Output only the translated prompt, nothing else:\n\n" +
-                      prompt,
-                  },
-                ],
-                max_tokens: 600,
-              }),
+      // Step 1: 템플릿 변수 치환 (prompt5.txt 등 미치환 변수 정리)
+      let processedPrompt = prompt
+        .replace(/\[LANGUAGE\]/g, "Korean")
+        .replace(/\[OBJECT_CATEGORY\]/g, "product")
+        .replace(/\[OBJECT_VIEW\]/g, "best view for the product")
+        .replace(/\[OBJECT_STATE\]/g, "most useful state")
+        .replace(/\[INFOGRAPHIC_GOAL\]/g, "HOW_TO_USE")
+        .replace(/\[\{argument[^\}]*\}\]/g, "") // 미치환 argument 블록 제거
+        .replace(/\s{3,}/g, "\n\n")             // 과도한 공백 정리
+        .trim();
+
+      // Step 2: 한글 → 영어 번역 (ByteString 오류 방지)
+      // SDK 내부 multipart 처리 시 non-ASCII가 헤더에 침투하는 문제 원천 차단
+      let safePrompt = processedPrompt;
+      if (/[^\x00-\x7F]/.test(processedPrompt)) {
+        if (hasOpenRouter) {
+          try {
+            const transRes = await fetch(
+              "https://openrouter.ai/api/v1/chat/completions",
+              {
+                method: "POST",
+                headers: openRouterHeaders(),
+                body: jsonBody({
+                  model: "openai/gpt-4o",
+                  messages: [
+                    {
+                      role: "user",
+                      content:
+                        "Translate the following image generation prompt to English. Output only the translated prompt, nothing else:\n\n" +
+                        processedPrompt,
+                    },
+                  ],
+                  max_tokens: 800,
+                }),
+              }
+            );
+            if (transRes.ok) {
+              const transData = await transRes.json();
+              const translated =
+                transData.choices?.[0]?.message?.content?.trim();
+              if (translated) safePrompt = translated;
             }
-          );
-          if (transRes.ok) {
-            const transData = await transRes.json();
-            const translated =
-              transData.choices?.[0]?.message?.content?.trim();
-            if (translated) safePrompt = translated;
+          } catch {
+            // 번역 실패 → 아래 ASCII 폴백으로 처리
           }
-        } catch {
-          // 번역 실패 시 원본 사용 (이후 SDK에서 오류 발생 가능)
+        }
+        // 번역 후에도 non-ASCII가 남아 있으면 안전한 영어 폴백 사용
+        if (/[^\x00-\x7F]/.test(safePrompt)) {
+          safePrompt =
+            "Create a professional product photo based on the uploaded image. " +
+            "Apply clean studio lighting, sharp details, commercial photography quality, white or neutral background.";
         }
       }
 
+      // Step 3: OpenAI SDK 호출 (safePrompt는 반드시 ASCII)
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const safeName =
         imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
