@@ -20,7 +20,6 @@ type ErrorAlert = {
   visible: boolean;
   templateName: string;
   message: string;
-  resolve: (() => void) | null;
 };
 
 export default function GenerateResults({ files, onReset }: GenerateResultsProps) {
@@ -32,7 +31,6 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
     visible: false,
     templateName: "",
     message: "",
-    resolve: null,
   });
   const initializedRef = useRef(false);
 
@@ -100,17 +98,13 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
     [files]
   );
 
-  /** 오류 알럿 표시 후 사용자가 닫을 때까지 대기 */
-  const showErrorAlert = (templateName: string, message: string): Promise<void> =>
-    new Promise((resolve) => {
-      setAlert({ visible: true, templateName, message, resolve });
-    });
+  /** 오류 알럿 표시 (논블로킹 — 생성 흐름은 계속 진행) */
+  const showErrorAlert = (templateName: string, message: string) => {
+    setAlert({ visible: true, templateName, message });
+  };
 
   const dismissAlert = () => {
-    setAlert((prev) => {
-      prev.resolve?.();
-      return { visible: false, templateName: "", message: "", resolve: null };
-    });
+    setAlert({ visible: false, templateName: "", message: "" });
   };
 
   /** 프롬프트 로드 완료 시 순차 자동 생성 */
@@ -122,8 +116,8 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
       for (let i = 0; i < TEMPLATE_LIST.length; i++) {
         const error = await generateImage(i, prompts[i]);
         if (error) {
-          await showErrorAlert(TEMPLATE_LIST[i].name, error);
-          // 알럿 닫은 후 다음 템플릿으로 계속 진행
+          // 오류 알럿 표시 후 즉시 다음 템플릿으로 계속 진행
+          showErrorAlert(TEMPLATE_LIST[i].name, error);
         }
       }
     })();
@@ -133,7 +127,7 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
   const handleRerun = async (index: number, promptText: string) => {
     const error = await generateImage(index, promptText);
     if (error) {
-      await showErrorAlert(TEMPLATE_LIST[index].name, error);
+      showErrorAlert(TEMPLATE_LIST[index].name, error);
     }
   };
 
@@ -161,37 +155,45 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
 
   return (
     <>
-      {/* ── 오류 알럿 모달 ──────────────────────────────────────────────────── */}
+      {/* ── 오류 알럿 레이어 ─────────────────────────────────────────────────── */}
       {alert.visible && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-red-500/30 bg-zinc-950 shadow-2xl">
-            {/* 헤더 */}
-            <div className="flex items-center gap-3 border-b border-zinc-800 px-6 py-4">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/15">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-                  />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && dismissAlert()}
+        >
+          <div className="flex w-full max-w-md flex-col rounded-2xl border border-red-500/30 bg-zinc-950 shadow-2xl"
+               style={{ maxHeight: "80vh" }}>
+
+            {/* 상단 헤더 + 닫기 버튼 */}
+            <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/15">
+                  <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24"
+                       stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">이미지 생성 오류</p>
+                  <p className="text-xs text-zinc-500">[{alert.templateName}]</p>
+                </div>
+              </div>
+              {/* 닫기 버튼 */}
+              <button
+                onClick={dismissAlert}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white"
+                aria-label="닫기"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                     stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-white">이미지 생성 오류</p>
-                <p className="text-xs text-zinc-500">
-                  [{alert.templateName}] 처리 중 오류가 발생했습니다
-                </p>
-              </div>
+              </button>
             </div>
 
-            {/* 오류 코드 */}
-            <div className="px-6 py-5">
+            {/* 오류 내용 — 스크롤 가능 */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-red-400">
                 오류 코드 / 내용
               </p>
@@ -201,23 +203,23 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
                 </pre>
               </div>
               <p className="mt-3 text-xs text-zinc-600">
-                오류를 확인한 후 계속 진행하거나 처음으로 돌아가서 다시 시도하세요.
+                생성은 자동으로 다음 항목으로 계속 진행됩니다.
               </p>
             </div>
 
-            {/* 버튼 */}
-            <div className="flex justify-end gap-3 border-t border-zinc-800 px-6 py-4">
+            {/* 하단 버튼 */}
+            <div className="flex shrink-0 justify-end gap-2 border-t border-zinc-800 px-5 py-3">
               <button
                 onClick={onReset}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-2.5 text-sm text-zinc-300 transition-all hover:border-zinc-500 hover:text-white"
+                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 transition-all hover:border-zinc-500 hover:text-white"
               >
                 처음으로
               </button>
               <button
                 onClick={dismissAlert}
-                className="rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105"
+                className="rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-2 text-sm font-semibold text-white transition-all hover:scale-105"
               >
-                계속 진행 →
+                닫기
               </button>
             </div>
           </div>
