@@ -82,7 +82,17 @@ export default function ToolPage() {
 
     try {
       const res = await fetch("/api/generate", { method: "POST", body: formData });
-      const data = await res.json();
+
+      // 응답이 JSON이 아닐 수 있으므로 안전하게 파싱
+      let data: Record<string, unknown>;
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        // Vercel 타임아웃·서버 크래시 시 HTML/텍스트 반환 → 오류로 처리
+        const text = await res.text();
+        throw new Error(`서버 오류 (${res.status}): ${text.slice(0, 120)}`);
+      }
 
       if (data.fallback) {
         // Canvas 폴백 — generateCanvasImage는 클라이언트 전용이므로 동적 import
@@ -90,9 +100,9 @@ export default function ToolPage() {
         const canvasUrl = await generateCanvasImage(tool!.promptIndex, file);
         setResultImage(canvasUrl);
       } else if (data.error) {
-        setError(data.error);
+        setError(data.error as string);
       } else {
-        setResultImage(data.imageUrl);
+        setResultImage(data.imageUrl as string);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "생성 실패. 다시 시도해 주세요.");
