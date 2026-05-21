@@ -45,9 +45,6 @@ export async function generateWithOpenAI(
     Buffer.from(
       `\r\n--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\n1024x1024`
     ),
-    Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="response_format"\r\n\r\nurl`
-    ),
     Buffer.from(`\r\n--${boundary}--\r\n`),
   ];
 
