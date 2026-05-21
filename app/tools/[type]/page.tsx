@@ -190,7 +190,7 @@ export default function ToolPage() {
       <header className="flex items-center justify-between border-b border-zinc-800/60 px-6 py-4">
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
+          className="flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-zinc-300"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -216,7 +216,7 @@ export default function ToolPage() {
 
             {/* 업로드 박스 */}
             <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-zinc-500">
+              <p className="mb-2 text-sm font-semibold text-white">
                 원본 이미지
               </p>
               <div
@@ -285,7 +285,7 @@ export default function ToolPage() {
 
             {/* 결과 이미지 박스 */}
             <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-zinc-500">
+              <p className="mb-2 text-sm font-semibold text-white">
                 생성 결과
               </p>
               <div
@@ -360,7 +360,7 @@ export default function ToolPage() {
               <button
                 onClick={generate}
                 disabled={!resultImage || loading}
-                className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-3.5 text-sm font-medium text-zinc-300 transition-all hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-3.5 text-sm font-semibold text-white transition-all hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -373,7 +373,7 @@ export default function ToolPage() {
           {/* ── 우측: 프롬프트 ────────────────────────────────────── */}
           <div className="flex flex-1 flex-col gap-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
+              <p className="text-sm font-semibold text-white">
                 프롬프트
               </p>
               <span className="text-xs text-white">직접 수정 가능</span>
