@@ -53,10 +53,16 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertErr || !job) {
-      return NextResponse.json(
-        { error: "작업 생성 실패: " + (insertErr?.message ?? "unknown") },
-        { status: 500 }
-      );
+      const isTableMissing =
+        insertErr?.message?.includes("image_jobs") ||
+        insertErr?.message?.includes("schema cache") ||
+        insertErr?.code === "42P01";
+
+      const errMsg = isTableMissing
+        ? "Supabase image_jobs 테이블이 없습니다. 대시보드 SQL Editor에서 테이블을 먼저 생성해 주세요."
+        : "작업 생성 실패: " + (insertErr?.message ?? "unknown");
+
+      return NextResponse.json({ error: errMsg }, { status: 500 });
     }
 
     const jobId = job.id as string;
