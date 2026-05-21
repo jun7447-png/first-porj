@@ -12,38 +12,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "OPENAI_API_KEY가 설정되지 않았습니다." }, { status: 500 });
     }
 
+    // Blob으로 감싸서 undici ByteString 검증 우회 (한글 포함 body 안전 전송)
+    const requestBody = new Blob(
+      [
+        JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a Korean SNS marketing and trend analysis expert. Generate emotional and purchase-inducing Korean marketing copy reflecting 2025 consumer trends.",
+            },
+            {
+              role: "user",
+              // 제품명만 한글 포함 — 나머지 지시문은 영어로 ByteString 오류 방지
+              content:
+                `Analyze the following product and generate Korean marketing copy for SNS/online shopping trends.\n\nProduct name: ${productName}\n\nRespond ONLY with this JSON (no explanation):\n{\n  "title": "Impactful product title (10-20 chars, Korean)",\n  "features": "Core product features and benefits (2-3 sentences, Korean)",\n  "hook": "Purchase-inducing hook phrase (15-30 chars, Korean)",\n  "comment": "Empathetic emotional comment (1-2 sentences, Korean)"\n}`,
+            },
+          ],
+          temperature: 0.85,
+          max_tokens: 600,
+        }),
+      ],
+      { type: "application/json" }
+    );
+
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content:
-              "당신은 SNS 마케팅·트렌드 분석 전문가입니다. 2025년 최신 소비 트렌드를 반영하여 제품에 맞는 감성적이고 구매욕을 자극하는 한국어 마케팅 문구를 생성합니다.",
-          },
-          {
-            role: "user",
-            content: `다음 제품명을 분석하고 최신 SNS/온라인 쇼핑몰 트렌드에 맞는 마케팅 문구를 생성해 주세요.
-
-제품명: ${productName}
-
-아래 JSON 형식으로만 응답하세요 (설명 없이 JSON만):
-{
-  "title": "임팩트 있는 제품 타이틀 (10~20자, 한국어)",
-  "features": "제품의 핵심 특징과 차별화 장점 (2~3문장, 한국어)",
-  "hook": "구매 욕구를 자극하는 후킹 문구 (15~30자, 한국어)",
-  "comment": "공감과 감성을 이끄는 코멘트 (1~2문장, 한국어)"
-}`,
-          },
-        ],
-        temperature: 0.85,
-        max_tokens: 600,
-      }),
+      body: requestBody,
     });
 
     if (!res.ok) {
