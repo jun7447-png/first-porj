@@ -64,8 +64,13 @@ export default function ToolPage() {
     setLoading(true);
     setError("");
 
+    // 파일명에 한글 등 non-ASCII 문자가 있으면 ASCII로 정규화
+    // → multipart Content-Disposition 헤더 ByteString 오류 방지
+    const safeName = file.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
+    const safeFile = new File([file], safeName, { type: file.type });
+
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", safeFile);
     formData.append("prompt", prompt);
 
     try {
