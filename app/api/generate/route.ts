@@ -80,106 +80,71 @@ export async function POST(req: NextRequest) {
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ── OpenAI DALL-E 3 ──────────────────────────────────────────────────────
+    // ── OpenAI gpt-image-2 (images/edits — 참조 이미지 직접 사용) ─────────────
     if (hasOpenAI) {
       const resolvedPrompt = resolvePromptVariables(prompt);
 
-      // Step 1: GPT-4o Vision으로 제품 이미지 분석
-      // (DALL-E 3은 참조 이미지를 직접 받지 않으므로 텍스트 설명으로 대체)
-      let productDescription = "";
-      try {
-        const base64 = buffer.toString("base64");
-        const mimeType = imageFile.type || "image/jpeg";
+      // gpt-image-2 images/edits: 업로드 이미지를 직접 참조 이미지로 전달
+      // → 제품의 외형·색상·질감을 그대로 유지하면서 배경/조명만 변경 가능
+      // JSON body 사용: ByteString 검증 없이 한글 포함 안전 처리
+      const safeName =
+        imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
+      const boundary = `SnapPage${Date.now()}${Math.random().toString(36).slice(2)}`;
+      const encoder = new TextEncoder();
 
-        // OpenRouter 또는 OpenAI 직접으로 GPT-4o 비전 호출
-        const visionEndpoint = hasOpenRouter
-          ? "https://openrouter.ai/api/v1/chat/completions"
-          : "https://api.openai.com/v1/chat/completions";
-        const visionHeaders = hasOpenRouter
-          ? openRouterHeaders()
-          : openAIHeaders();
-        const visionModel = hasOpenRouter ? "openai/gpt-4o" : "gpt-4o";
+      const parts: Buffer[] = [
+        Buffer.from(
+          `--${boundary}\r\n` +
+            `Content-Disposition: form-data; name="image"; filename="${safeName}"\r\n` +
+            `Content-Type: ${imageFile.type || "image/png"}\r\n\r\n`
+        ),
+        buffer,
+        Buffer.from(
+          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n`
+        ),
+        Buffer.from(encoder.encode(resolvedPrompt)),
+        Buffer.from(
+          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\ngpt-image-2`
+        ),
+        Buffer.from(
+          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="n"\r\n\r\n1`
+        ),
+        Buffer.from(
+          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\n1024x1024`
+        ),
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ];
 
-        const visionRes = await fetch(visionEndpoint, {
-          method: "POST",
-          headers: visionHeaders,
-          body: jsonBody({
-            model: visionModel,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "image_url",
-                    image_url: { url: `data:${mimeType};base64,${base64}` },
-                  },
-                  {
-                    type: "text",
-                    text: "Describe this product precisely for DALL-E 3 image generation. Include: exact shape, color, material, texture, size impression, and key distinguishing features. Be specific and detailed. 3-4 sentences in English only.",
-                  },
-                ],
-              },
-            ],
-            max_tokens: 300,
-          }),
-        });
-
-        if (visionRes.ok) {
-          const visionData = await visionRes.json();
-          productDescription =
-            visionData.choices?.[0]?.message?.content?.trim() ?? "";
-        }
-      } catch {
-        // 분석 실패 시 프롬프트만으로 계속 진행
-      }
-
-      // Step 2: 최종 프롬프트 구성 (DALL-E 3 한도 4000자)
-      const truncatedPrompt =
-        resolvedPrompt.length > 2000
-          ? resolvedPrompt.slice(0, 2000) + "..."
-          : resolvedPrompt;
-
-      const finalPrompt = (
-        productDescription
-          ? `Product description: ${productDescription}\n\n${truncatedPrompt}`
-          : truncatedPrompt
-      ).slice(0, 4000);
-
-      // Step 3: DALL-E 3 이미지 생성
-      // jsonBody()로 Blob 전송 → ByteString 검증 없이 한글 포함 안전 처리
-      const dalleRes = await fetch(
-        "https://api.openai.com/v1/images/generations",
-        {
-          method: "POST",
-          headers: openAIHeaders(),
-          body: jsonBody({
-            model: "gpt-image-2",
-            prompt: finalPrompt,
-            n: 1,
-            size: "1024x1024",
-            quality: "standard",
-            response_format: "b64_json",
-          }),
-        }
+      const multipartBody = new Blob(
+        [Buffer.concat(parts)],
+        { type: "application/octet-stream" }
       );
 
-      if (!dalleRes.ok) {
-        const errText = await dalleRes.text();
+      const oaRes = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY!}`,
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: multipartBody,
+      });
+
+      if (!oaRes.ok) {
+        const errText = await oaRes.text();
         return NextResponse.json(
-          { error: `DALL-E 3 생성 실패 (${dalleRes.status}): ${errText.slice(0, 400)}` },
+          { error: `gpt-image-2 생성 실패 (${oaRes.status}): ${errText.slice(0, 400)}` },
           { status: 500 }
         );
       }
 
-      const dalleData = await dalleRes.json();
-      const b64 = dalleData.data?.[0]?.b64_json as string | undefined;
+      const oaData = await oaRes.json();
+      const b64 = oaData.data?.[0]?.b64_json as string | undefined;
 
       if (b64) {
         return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
       }
 
-      // b64_json 없으면 url 시도
-      const remoteUrl = dalleData.data?.[0]?.url as string | undefined;
+      const remoteUrl = oaData.data?.[0]?.url as string | undefined;
       if (remoteUrl) {
         const fetched = await fetch(remoteUrl);
         const imgBuf = Buffer.from(await fetched.arrayBuffer());
