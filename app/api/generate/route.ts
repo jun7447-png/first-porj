@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI, { toFile } from "openai";
 
 export const maxDuration = 60;
 
@@ -20,17 +19,83 @@ function openRouterHeaders(): HeadersInit {
 
 /** Pollinations.ai 무료 이미지 생성 (API 키 불필요) */
 async function generateWithPollinations(prompt: string): Promise<string> {
-  // 프롬프트를 1500자로 제한 (URL 길이 제한)
   const safePrompt = prompt.slice(0, 1500);
   const seed = Math.floor(Math.random() * 99999);
   const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
-
   const res = await fetch(url, { signal: AbortSignal.timeout(50000) });
   if (!res.ok) throw new Error(`Pollinations 오류: ${res.status}`);
-
   const buf = Buffer.from(await res.arrayBuffer());
   const mime = res.headers.get("content-type") ?? "image/jpeg";
   return `data:${mime};base64,${buf.toString("base64")}`;
+}
+
+/**
+ * 한글 포함 프롬프트를 안전하게 처리하는 UTF-8 멀티파트 바디 생성
+ *
+ * 배경:
+ *   Node.js undici(fetch 구현체)의 FormData는 문자열 값을 ByteString으로
+ *   검증한다. 한글(non-Latin1) 문자가 있으면 "character at index N has
+ *   a value > 255" 오류가 발생한다.
+ *
+ * 해결:
+ *   FormData 대신 Buffer를 직접 구성하여 프롬프트를 UTF-8 바이트로 인코딩.
+ *   undici는 Buffer body에 대해 ByteString 검증을 수행하지 않는다.
+ */
+function buildMultipartBody(
+  imageBuffer: Buffer,
+  imageMime: string,
+  imageFilename: string,
+  prompt: string,
+  model = "gpt-image-1",
+  size = "1024x1024"
+): { body: Blob; contentType: string } {
+  const boundary = `SnapPage${Date.now()}${Math.random().toString(36).slice(2)}`;
+  const encoder = new TextEncoder();
+
+  const parts: Buffer[] = [
+    // ── image ──────────────────────────────────────────────────────────────
+    Buffer.from(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="image"; filename="${imageFilename}"\r\n` +
+        `Content-Type: ${imageMime}\r\n\r\n`
+    ),
+    imageBuffer,
+    // ── prompt (UTF-8 바이트) ──────────────────────────────────────────────
+    Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n`),
+    Buffer.from(encoder.encode(prompt)),
+    // ── model ──────────────────────────────────────────────────────────────
+    Buffer.from(
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}`
+    ),
+    // ── n ──────────────────────────────────────────────────────────────────
+    Buffer.from(
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="n"\r\n\r\n1`
+    ),
+    // ── size ───────────────────────────────────────────────────────────────
+    Buffer.from(
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\n${size}`
+    ),
+    // ── 종료 ───────────────────────────────────────────────────────────────
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ];
+
+  return {
+    body: new Blob([Buffer.concat(parts)], { type: "application/octet-stream" }),
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
+}
+
+/** prompt 파일의 미치환 템플릿 변수를 실제 값으로 교체 */
+function resolvePromptVariables(prompt: string): string {
+  return prompt
+    .replace(/\[LANGUAGE\]/g, "Korean")
+    .replace(/\[OBJECT_CATEGORY\]/g, "product")
+    .replace(/\[OBJECT_VIEW\]/g, "best view for the product")
+    .replace(/\[OBJECT_STATE\]/g, "most useful state")
+    .replace(/\[INFOGRAPHIC_GOAL\]/g, "HOW_TO_USE")
+    .replace(/\[\{argument[^\}]*\}\]/g, "")
+    .replace(/\s{3,}/g, "\n\n")
+    .trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -56,83 +121,66 @@ export async function POST(req: NextRequest) {
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ── OpenAI 최우선: gpt-image-1 (업로드 이미지 직접 참조) ─────────────────
+    // ── OpenAI gpt-image-1 ────────────────────────────────────────────────
     if (hasOpenAI) {
-      // Step 1: 템플릿 변수 치환 (prompt5.txt 등 미치환 변수 정리)
-      let processedPrompt = prompt
-        .replace(/\[LANGUAGE\]/g, "Korean")
-        .replace(/\[OBJECT_CATEGORY\]/g, "product")
-        .replace(/\[OBJECT_VIEW\]/g, "best view for the product")
-        .replace(/\[OBJECT_STATE\]/g, "most useful state")
-        .replace(/\[INFOGRAPHIC_GOAL\]/g, "HOW_TO_USE")
-        .replace(/\[\{argument[^\}]*\}\]/g, "") // 미치환 argument 블록 제거
-        .replace(/\s{3,}/g, "\n\n")             // 과도한 공백 정리
-        .trim();
+      // 1. 템플릿 변수 치환 (prompt5.txt 등)
+      const resolvedPrompt = resolvePromptVariables(prompt);
 
-      // Step 2: 한글 → 영어 번역 (ByteString 오류 방지)
-      // SDK 내부 multipart 처리 시 non-ASCII가 헤더에 침투하는 문제 원천 차단
-      let safePrompt = processedPrompt;
-      if (/[^\x00-\x7F]/.test(processedPrompt)) {
-        if (hasOpenRouter) {
-          try {
-            const transRes = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: openRouterHeaders(),
-                body: jsonBody({
-                  model: "openai/gpt-4o",
-                  messages: [
-                    {
-                      role: "user",
-                      content:
-                        "Translate the following image generation prompt to English. Output only the translated prompt, nothing else:\n\n" +
-                        processedPrompt,
-                    },
-                  ],
-                  max_tokens: 800,
-                }),
-              }
-            );
-            if (transRes.ok) {
-              const transData = await transRes.json();
-              const translated =
-                transData.choices?.[0]?.message?.content?.trim();
-              if (translated) safePrompt = translated;
-            }
-          } catch {
-            // 번역 실패 → 아래 ASCII 폴백으로 처리
-          }
-        }
-        // 번역 후에도 non-ASCII가 남아 있으면 안전한 영어 폴백 사용
-        if (/[^\x00-\x7F]/.test(safePrompt)) {
-          safePrompt =
-            "Create a professional product photo based on the uploaded image. " +
-            "Apply clean studio lighting, sharp details, commercial photography quality, white or neutral background.";
-        }
-      }
-
-      // Step 3: OpenAI SDK 호출 (safePrompt는 반드시 ASCII)
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      // 2. 파일명 ASCII 정규화
       const safeName =
         imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
-      const file = await toFile(buffer, safeName, {
-        type: imageFile.type || "image/png",
+
+      // 3. UTF-8 멀티파트 바디 직접 구성 → 한글 포함 프롬프트 안전 전송
+      const { body, contentType } = buildMultipartBody(
+        buffer,
+        imageFile.type || "image/png",
+        safeName,
+        resolvedPrompt
+      );
+
+      const oaRes = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY!}`,
+          "Content-Type": contentType,
+        },
+        body,
       });
-      const response = await openai.images.edit({
-        model: "gpt-image-1",
-        image: file,
-        prompt: safePrompt,
-        n: 1,
-        size: "1024x1024",
-      });
-      const b64 = response.data?.[0]?.b64_json;
-      return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
+
+      if (!oaRes.ok) {
+        const errText = await oaRes.text();
+        return NextResponse.json(
+          { error: `이미지 생성 실패 (${oaRes.status}): ${errText.slice(0, 400)}` },
+          { status: 500 }
+        );
+      }
+
+      const oaData = await oaRes.json();
+      const b64 = oaData.data?.[0]?.b64_json as string | undefined;
+
+      if (b64) {
+        return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
+      }
+
+      // b64_json 없으면 url 시도
+      const remoteUrl = oaData.data?.[0]?.url as string | undefined;
+      if (remoteUrl) {
+        const fetched = await fetch(remoteUrl);
+        const imgBuf = Buffer.from(await fetched.arrayBuffer());
+        const imgMime = fetched.headers.get("content-type") ?? "image/png";
+        return NextResponse.json({
+          imageUrl: `data:${imgMime};base64,${imgBuf.toString("base64")}`,
+        });
+      }
+
+      return NextResponse.json(
+        { error: "이미지 데이터를 받지 못했습니다." },
+        { status: 500 }
+      );
     }
 
     // ── OpenRouter: GPT-4o Vision 분석 → Pollinations.ai 이미지 생성 ────────
     if (hasOpenRouter) {
-      // Step 1: GPT-4o로 제품 이미지 분석 (실패해도 계속 진행)
       let productDescription = "";
       try {
         const base64 = buffer.toString("base64");
@@ -174,23 +222,18 @@ export async function POST(req: NextRequest) {
         // 분석 실패 시 원본 프롬프트만으로 계속 진행
       }
 
-      // Step 2: 최종 프롬프트 조합
       const truncatedPrompt =
         prompt.length > 1000 ? prompt.slice(0, 1000) + "..." : prompt;
-
       const finalPrompt = productDescription
         ? `${productDescription}. ${truncatedPrompt}`
         : truncatedPrompt;
 
-      // Step 3: Pollinations.ai로 이미지 생성 (무료, API 키 불필요)
       try {
         const imageUrl = await generateWithPollinations(finalPrompt);
         return NextResponse.json({ imageUrl });
-      } catch (pollinationsErr) {
+      } catch (err) {
         const errMsg =
-          pollinationsErr instanceof Error
-            ? pollinationsErr.message
-            : "이미지 생성에 실패했습니다.";
+          err instanceof Error ? err.message : "이미지 생성에 실패했습니다.";
         return NextResponse.json({ error: errMsg }, { status: 500 });
       }
     }
