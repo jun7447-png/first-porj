@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { TEMPLATE_LIST } from "@/lib/templates";
 import { generateCanvasImage } from "@/lib/canvas-templates";
+import { supabase } from "@/lib/supabase";
 
 interface GenerateResultsProps {
   files: File[];
@@ -34,16 +35,36 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
   });
   const initializedRef = useRef(false);
 
-  // 프롬프트 파일 로드
+  // 프롬프트 로드: 파일 기본값 → 로그인 사용자 DB 값으로 덮어쓰기
   useEffect(() => {
-    fetch("/api/prompts")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.prompts) setPrompts(data.prompts);
-      })
-      .catch(() => {
-        setPrompts(TEMPLATE_LIST.map(() => ""));
-      });
+    (async () => {
+      // 1) 파일 기본값 로드
+      let defaults: string[] = TEMPLATE_LIST.map(() => "");
+      try {
+        const res = await fetch("/api/prompts");
+        const data = await res.json();
+        if (data.prompts) defaults = data.prompts;
+      } catch {
+        // 파일 로드 실패 시 빈 문자열 유지
+      }
+
+      // 2) 로그인 사용자이면 DB 저장값으로 덮어쓰기
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (userId) {
+        const { data: rows } = await supabase
+          .from("user_prompts")
+          .select("template_index, prompt_text")
+          .eq("user_id", userId);
+        if (rows?.length) {
+          rows.forEach((row) => {
+            defaults[row.template_index] = row.prompt_text;
+          });
+        }
+      }
+
+      setPrompts(defaults);
+    })();
   }, []);
 
   /** 이미지 1장 생성 — 성공 시 null, 실패 시 오류 메시지 반환 */
@@ -123,12 +144,26 @@ export default function GenerateResults({ files, onReset }: GenerateResultsProps
     })();
   }, [prompts, generateImage]);
 
-  /** 수동 재실행 */
+  /** 수동 재실행 — 성공 시 DB에 UPSERT 저장 */
   const handleRerun = async (index: number, promptText: string) => {
     const error = await generateImage(index, promptText);
-    if (error) {
-      showErrorAlert(TEMPLATE_LIST[index].name, error);
+    if (!error) {
+      // 생성 성공 시에만 DB 저장 (누적 없이 UPSERT)
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (userId) {
+        await supabase.from("user_prompts").upsert(
+          {
+            user_id: userId,
+            template_index: index,
+            prompt_text: promptText,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,template_index" }
+        );
+      }
     }
+    if (error) showErrorAlert(TEMPLATE_LIST[index].name, error);
   };
 
   const updatePrompt = (index: number, value: string) => {
