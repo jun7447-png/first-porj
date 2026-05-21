@@ -42,9 +42,9 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     type: "5",
-    name: "제품이용설명서",
-    shortName: "이용설명서",
-    description: "제품 사용법 인포그래픽을 생성합니다",
+    name: "제품 홍보 포스터 생성",
+    shortName: "홍보포스터",
+    description: "제품명 입력으로 홍보 포스터를 자동 생성합니다",
     promptIndex: 4,
     emoji: "📋",
   },

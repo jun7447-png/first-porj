@@ -29,7 +29,8 @@ export default function ToolPage() {
   const [t5Features, setT5Features] = useState("");        // 제품특징
   const [t5Hook, setT5Hook] = useState("");                // 후킹 문구
   const [t5Comment, setT5Comment] = useState("");          // 감성코멘트
-  const [t5CopyLoading, setT5CopyLoading] = useState(false); // 문구 생성 중
+  const [t5CopyLoading, setT5CopyLoading] = useState(false);   // 문구 생성 중
+  const [t5CopyDone, setT5CopyDone] = useState(false);         // 최초 생성 여부
 
   // 인증 체크 + 기본 프롬프트 로드
   useEffect(() => {
@@ -387,8 +388,10 @@ export default function ToolPage() {
           {/* ── 우측: 프롬프트 (500px 고정, 좌측 컬럼 높이에 맞춤) ─── */}
           <div className="flex flex-col gap-3" style={{ width: 500, flexShrink: 0, minHeight: 0 }}>
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-white">프롬프트</p>
-              <span className="text-xs text-white">직접 수정 가능</span>
+              <p className="text-sm font-semibold text-white">
+                {isT5 ? "제품명 입력(이미지 생성 문구 자동 생성)" : "프롬프트"}
+              </p>
+              {!isT5 && <span className="text-xs text-white">직접 수정 가능</span>}
             </div>
 
             {isT5 ? (
@@ -420,6 +423,7 @@ export default function ToolPage() {
                         setT5Features(data.features ?? "");
                         setT5Hook(data.hook ?? "");
                         setT5Comment(data.comment ?? "");
+                        setT5CopyDone(true);
                       } catch (e) {
                         setError(e instanceof Error ? e.message : "문구 생성 실패");
                       } finally {
@@ -431,8 +435,10 @@ export default function ToolPage() {
                   >
                     {t5CopyLoading ? (
                       <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-white/40 border-t-white" />생성 중...</>
+                    ) : t5CopyDone ? (
+                      <>↺ 다시생성</>
                     ) : (
-                      <>✦ 제품문구 다시생성</>
+                      <>✦ 생성</>
                     )}
                   </button>
                 </div>
