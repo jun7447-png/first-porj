@@ -338,8 +338,8 @@ export default function ToolPage() {
               </div>
             )}
 
-            {/* 버튼 */}
-            <div className="flex gap-3">
+            {/* 버튼 — 이미지 박스(300px)와 동일 너비 */}
+            <div className="flex gap-3" style={{ width: 300 }}>
               <button
                 onClick={generate}
                 disabled={!file || loading}
