@@ -18,6 +18,21 @@ function openRouterHeaders(): HeadersInit {
   };
 }
 
+/** Pollinations.ai 무료 이미지 생성 (API 키 불필요) */
+async function generateWithPollinations(prompt: string): Promise<string> {
+  // 프롬프트를 1500자로 제한 (URL 길이 제한)
+  const safePrompt = prompt.slice(0, 1500);
+  const seed = Math.floor(Math.random() * 99999);
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(50000) });
+  if (!res.ok) throw new Error(`Pollinations 오류: ${res.status}`);
+
+  const buf = Buffer.from(await res.arrayBuffer());
+  const mime = res.headers.get("content-type") ?? "image/jpeg";
+  return `data:${mime};base64,${buf.toString("base64")}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -41,9 +56,9 @@ export async function POST(req: NextRequest) {
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ── OpenRouter: GPT-4o Vision → DALL-E 3 ─────────────────────────────────
+    // ── OpenRouter: GPT-4o Vision 분석 → Pollinations.ai 이미지 생성 ────────
     if (hasOpenRouter) {
-      // Step 1: 제품 이미지 분석 (실패해도 계속 진행)
+      // Step 1: GPT-4o로 제품 이미지 분석 (실패해도 계속 진행)
       let productDescription = "";
       try {
         const base64 = buffer.toString("base64");
@@ -54,7 +69,6 @@ export async function POST(req: NextRequest) {
           {
             method: "POST",
             headers: openRouterHeaders(),
-            // body를 Blob으로 전송 → 멀티바이트 문자 안전 처리
             body: jsonBody({
               model: "openai/gpt-4o",
               messages: [
@@ -63,19 +77,16 @@ export async function POST(req: NextRequest) {
                   content: [
                     {
                       type: "image_url",
-                      image_url: {
-                        url: `data:${mimeType};base64,${base64}`,
-                      },
+                      image_url: { url: `data:${mimeType};base64,${base64}` },
                     },
                     {
                       type: "text",
-                      // 내부 지시문은 영어로 → ByteString 오류 방지
-                      text: "Describe this product precisely for AI image generation: shape, color, material, texture, and key features. Keep it to 2-3 sentences.",
+                      text: "Describe this product precisely for AI image generation: shape, color, material, texture, and key features. Keep it to 2-3 sentences in English.",
                     },
                   ],
                 },
               ],
-              max_tokens: 250,
+              max_tokens: 200,
             }),
           }
         );
@@ -89,68 +100,32 @@ export async function POST(req: NextRequest) {
         // 분석 실패 시 원본 프롬프트만으로 계속 진행
       }
 
-      // Step 2: DALL-E 3 이미지 생성
+      // Step 2: 최종 프롬프트 조합
       const truncatedPrompt =
-        prompt.length > 2500 ? prompt.slice(0, 2500) + "..." : prompt;
+        prompt.length > 1000 ? prompt.slice(0, 1000) + "..." : prompt;
 
-      const finalPrompt = (
-        productDescription
-          ? `Product: ${productDescription}\n\n${truncatedPrompt}`
-          : truncatedPrompt
-      ).slice(0, 4000);
+      const finalPrompt = productDescription
+        ? `${productDescription}. ${truncatedPrompt}`
+        : truncatedPrompt;
 
-      const imageRes = await fetch(
-        "https://openrouter.ai/api/v1/images/generations",
-        {
-          method: "POST",
-          headers: openRouterHeaders(),
-          body: jsonBody({
-            model: "openai/dall-e-3",
-            prompt: finalPrompt,
-            n: 1,
-            size: "1024x1024",
-            response_format: "b64_json",
-          }),
-        }
-      );
-
-      if (!imageRes.ok) {
-        const errBody = await imageRes.text();
-        return NextResponse.json(
-          { error: `이미지 생성 실패 (${imageRes.status}): ${errBody}` },
-          { status: 500 }
-        );
+      // Step 3: Pollinations.ai로 이미지 생성 (무료, API 키 불필요)
+      try {
+        const imageUrl = await generateWithPollinations(finalPrompt);
+        return NextResponse.json({ imageUrl });
+      } catch (pollinationsErr) {
+        const errMsg =
+          pollinationsErr instanceof Error
+            ? pollinationsErr.message
+            : "이미지 생성에 실패했습니다.";
+        return NextResponse.json({ error: errMsg }, { status: 500 });
       }
-
-      const imageData = await imageRes.json();
-      const b64 = imageData.data?.[0]?.b64_json as string | undefined;
-
-      if (b64) {
-        return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
-      }
-
-      // b64_json 없으면 url로 재시도
-      const remoteUrl = imageData.data?.[0]?.url as string | undefined;
-      if (remoteUrl) {
-        const fetched = await fetch(remoteUrl);
-        const imgBuf = Buffer.from(await fetched.arrayBuffer());
-        const imgMime = fetched.headers.get("content-type") ?? "image/png";
-        return NextResponse.json({
-          imageUrl: `data:${imgMime};base64,${imgBuf.toString("base64")}`,
-        });
-      }
-
-      return NextResponse.json(
-        { error: "이미지 데이터를 받지 못했습니다." },
-        { status: 500 }
-      );
     }
 
     // ── OpenAI 직접 연결 (폴백) ───────────────────────────────────────────────
     if (hasOpenAI) {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      // 파일명 ASCII로 정규화 → Content-Disposition 헤더 오류 방지
-      const safeName = imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
+      const safeName =
+        imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.png";
       const file = await toFile(buffer, safeName, {
         type: imageFile.type || "image/png",
       });
