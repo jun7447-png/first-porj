@@ -209,7 +209,7 @@ export default function ToolPage() {
 
       {/* 본문 */}
       <div className="py-4">
-        <div className="flex flex-col items-center lg:flex-row lg:justify-center lg:items-start" style={{ gap: 50 }}>
+        <div className="flex flex-col items-center lg:flex-row lg:justify-center lg:items-stretch" style={{ gap: 50 }}>
 
           {/* ── 좌측: 업로드 + 결과 (300px 고정) ─────────────────── */}
           <div className="flex flex-col gap-4" style={{ width: 300, flexShrink: 0 }}>
@@ -370,8 +370,8 @@ export default function ToolPage() {
             </div>
           </div>
 
-          {/* ── 우측: 프롬프트 (500px 고정) ─────────────────────── */}
-          <div className="flex flex-col gap-3" style={{ width: 500, flexShrink: 0 }}>
+          {/* ── 우측: 프롬프트 (500px 고정, 좌측 컬럼 높이에 맞춤) ─── */}
+          <div className="flex flex-col gap-3" style={{ width: 500, flexShrink: 0, minHeight: 0 }}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">
                 프롬프트
@@ -382,8 +382,8 @@ export default function ToolPage() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="이미지 생성 프롬프트를 입력하세요..."
-              className="w-full resize-none rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 text-sm leading-relaxed text-zinc-300 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-              style={{ width: 500, minHeight: 320, maxHeight: 900, overflowY: "auto" }}
+              className="w-full flex-1 resize-none rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-4 text-sm leading-relaxed text-zinc-300 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+              style={{ width: 500, overflowY: "auto" }}
             />
             <p className="text-xs text-white">
               ✦ 프롬프트를 수정한 뒤 AI이미지생성 버튼을 눌러 새로운 결과를 확인하세요.
