@@ -197,8 +197,8 @@ export default function ToolPage() {
           </svg>
           메인으로
         </Link>
-        <span className="flex items-center gap-2 text-sm font-semibold text-white">
-          <span className="text-lg">{tool.emoji}</span>
+        <span className="flex items-center gap-2 text-2xl font-bold text-white" style={{ marginTop: 50 }}>
+          <span className="text-3xl">{tool.emoji}</span>
           {tool.name}
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs text-violet-300">
