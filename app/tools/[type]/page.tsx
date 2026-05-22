@@ -22,6 +22,10 @@ export default function ToolPage() {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // /tools/4 전용: 강조문구 입력 (프롬프트 비노출)
+  const isT4 = type === "4";
+  const [t4Phrase, setT4Phrase] = useState("올해의 인기 Pick"); // 예시 기본값
+
   // /tools/5 전용 구조화 입력 상태
   const isT5 = type === "5";
   const [t5Product, setT5Product] = useState("");          // 제품명
@@ -104,8 +108,13 @@ export default function ToolPage() {
   };
 
   const generate = async () => {
-    // tool5는 구조화 필드, 나머지는 단순 prompt 사용
-    const activePrompt = isT5
+    // 도구별 최종 프롬프트 조합
+    // tool4: prompt4.txt(숨김) + 사용자 강조문구
+    // tool5: prompt5.txt(숨김) + 구조화 필드
+    // 나머지: 기본 textarea 프롬프트
+    const activePrompt = isT4
+      ? `${prompt}\n\n타이포그래피 문구: "${t4Phrase}"`
+      : isT5
       ? `${prompt}\n\n제품명: "${t5Product}"\n타이틀: "${t5Title}"\n제품특징: "${t5Features}"\n후킹 문구: "${t5Hook}"\n감성 코멘트: "${t5Comment}"`
       : prompt;
 
@@ -389,12 +398,56 @@ export default function ToolPage() {
           <div className="flex flex-col gap-3" style={{ width: 500, flexShrink: 0, minHeight: 0 }}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">
-                {isT5 ? "제품명 입력(이미지 생성 문구 자동 생성)" : "프롬프트"}
+                {isT4
+                  ? "강조문구 입력"
+                  : isT5
+                  ? "제품명 입력(이미지 생성 문구 자동 생성)"
+                  : "프롬프트"}
               </p>
-              {!isT5 && <span className="text-xs text-white">직접 수정 가능</span>}
+              {!isT4 && !isT5 && <span className="text-xs text-white">직접 수정 가능</span>}
             </div>
 
-            {isT5 ? (
+            {isT4 ? (
+              /* ── /tools/4 전용: 강조문구 입력 (이미지 프롬프트 비노출) ── */
+              <div className="flex flex-1 flex-col gap-4">
+                {/* 강조문구 입력 */}
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={t4Phrase}
+                    onChange={(e) => setT4Phrase(e.target.value)}
+                    placeholder="예: 올해의 인기 Pick"
+                    className="w-full rounded-xl border border-violet-500/50 bg-zinc-800 px-4 py-3 text-base font-semibold text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
+                  />
+                  <p className="text-xs text-zinc-500">
+                    예시: "올해의 인기 Pick" · "지금 바로 구매" · "베스트 셀러" · "한정 특가"
+                  </p>
+                </div>
+
+                {/* 안내 박스 */}
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-5 flex flex-col gap-3">
+                  <p className="text-sm font-semibold text-white">적용 방식</p>
+                  <ul className="space-y-2 text-sm text-zinc-400">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-violet-400">①</span>
+                      입력한 강조문구가 제품 이미지 <strong className="text-white">정중앙에 크게</strong> 배치됩니다.
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-violet-400">②</span>
+                      문구 라인에 <strong className="text-white">흰색 반투명 띠(불투명도 60%)</strong>가 적용됩니다.
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-violet-400">③</span>
+                      제품 원본 이미지는 그대로 유지됩니다.
+                    </li>
+                  </ul>
+                </div>
+
+                <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-2.5 text-xs text-violet-300">
+                  💡 강조문구를 직접 수정하고 AI이미지생성 버튼을 클릭하세요.
+                </p>
+              </div>
+            ) : isT5 ? (
               /* ── /tools/5 전용: 제품명 입력 → ChatGPT 자동 생성 ── */
               <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
 
