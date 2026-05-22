@@ -165,8 +165,8 @@ export default function ToolPage() {
     setError("");
 
     try {
-      // 1. 가로 1200px 압축 (업로드 크기 최소화)
-      const compressed = await compressImage(file, 1200);
+      // 1. 가로 1800px 리사이징 (해상도·왜곡 균형점)
+      const compressed = await compressImage(file, 1800);
       const safeFile = new File([compressed], "image.jpg", { type: "image/jpeg" });
 
       // 2. 한글 프롬프트 base64 인코딩 (ByteString 오류 방지)
