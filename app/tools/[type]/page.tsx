@@ -143,11 +143,17 @@ export default function ToolPage() {
 
   const generate = async () => {
     // 도구별 최종 프롬프트 조합
-    // tool4: prompt4.txt(숨김) + 사용자 강조문구
+    // tool4: 핵심 지시문(고정) + 사용자 강조문구만 교체 적용
+    //        → prompt 상태(전체 파일 내용) 사용 안 함 — 30개 목록·예시 제외
     // tool5: prompt5.txt(숨김) + 구조화 필드
     // 나머지: 기본 textarea 프롬프트
+    const T4_BASE =
+      "타이포그래피가 이미지 상하좌우 정중앙에 배치 크게 강조되어 적용.\n" +
+      "해당 글자 라인의 불투명도60%의 흰색 띠 적용.\n" +
+      "The product is not a design reference; it is the final product that must be preserved exactly.";
+
     const activePrompt = isT4
-      ? `${prompt}\n\n타이포그래피 문구: "${t4Phrase}"`
+      ? `${T4_BASE}\n\n타이포그래피 문구: "${t4Phrase}"`
       : isT5
       ? `${prompt}\n\n제품명: "${t5Product}"\n타이틀: "${t5Title}"\n제품특징: "${t5Features}"\n후킹 문구: "${t5Hook}"\n감성 코멘트: "${t5Comment}"`
       : prompt;
