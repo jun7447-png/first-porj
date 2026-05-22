@@ -480,8 +480,8 @@ export default function ToolPage() {
                 {/* 선택 반영 문구 30개 */}
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-semibold text-white">선택 반영 문구</p>
-                  <p className="text-xs text-zinc-500">문구를 클릭하면 강조문구 입력란에 바로 반영됩니다.</p>
-                  <div className="max-h-52 overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900/60">
+                  <p className="text-xs text-white">문구를 클릭하면 강조문구 입력란에 바로 반영됩니다. 직접수정도 가능합니다.</p>
+                  <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60">
                     {T4_PHRASES.map((phrase, idx) => (
                       <button
                         key={idx}
