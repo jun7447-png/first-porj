@@ -149,11 +149,13 @@ export default function ToolPage() {
     // 나머지: 기본 textarea 프롬프트
     const T4_BASE =
       "타이포그래피가 이미지 상하좌우 정중앙에 배치 크게 강조되어 적용.\n" +
+      `타이포그래피 문구는 아래 1개의 문구로만 적용: "${t4Phrase}"\n` +
       "해당 글자 라인의 불투명도60%의 흰색 띠 적용.\n" +
+      "업로드 이미지는 변형없이 배경이미지로만 사용.\n" +
       "The product is not a design reference; it is the final product that must be preserved exactly.";
 
     const activePrompt = isT4
-      ? `${T4_BASE}\n\n타이포그래피 문구: "${t4Phrase}"`
+      ? T4_BASE
       : isT5
       ? `${prompt}\n\n제품명: "${t5Product}"\n타이틀: "${t5Title}"\n제품특징: "${t5Features}"\n후킹 문구: "${t5Hook}"\n감성 코멘트: "${t5Comment}"`
       : prompt;
