@@ -196,12 +196,7 @@ export default function ToolPage() {
 
       const startData = await startRes.json();
 
-      if (startData.fallback) {
-        const { generateCanvasImage } = await import("@/lib/canvas-templates");
-        const canvasUrl = await generateCanvasImage(tool!.promptIndex, file);
-        setResultImage(canvasUrl);
-        return;
-      }
+      // 폴백 없음 — 모델 오류 시 지정 메시지만 표시
       if (startData.error) throw new Error(startData.error as string);
 
       const { jobId } = startData as { jobId: string };

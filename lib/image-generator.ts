@@ -11,10 +11,11 @@ export function resolvePromptVariables(prompt: string): string {
     .trim();
 }
 
-/**
- * gpt-image-1 images/edits 호출 (UTF-8 멀티파트 직접 구성)
- * 반환: imageUrl (OpenAI 임시 URL 또는 data:URL)
- */
+/** 이미지 생성 실패 시 공통 알럿 메시지 */
+export const IMAGE_MODEL_ERROR =
+  "현재 Chatgpt 이미지 생성 모델이 원활하지 않습니다.잠시 후 다시 시도해 주세요!";
+
+/** 사용 모델: openai/gpt-image-2 (images/edits, UTF-8 멀티파트 직접 구성) */
 export async function generateWithOpenAI(
   buffer: Buffer,
   mimeType: string,
@@ -37,7 +38,7 @@ export async function generateWithOpenAI(
     ),
     Buffer.from(encoder.encode(resolved)),
     Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\ngpt-image-1`
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\ngpt-image-2`
     ),
     Buffer.from(
       `\r\n--${boundary}\r\nContent-Disposition: form-data; name="n"\r\n\r\n1`
@@ -60,8 +61,7 @@ export async function generateWithOpenAI(
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`이미지 생성 실패 (${res.status}): ${errText.slice(0, 300)}`);
+    throw new Error(IMAGE_MODEL_ERROR);
   }
 
   const data = await res.json();
@@ -71,5 +71,5 @@ export async function generateWithOpenAI(
   const b64 = data.data?.[0]?.b64_json as string | undefined;
   if (b64) return `data:image/png;base64,${b64}`;
 
-  throw new Error("이미지 데이터를 받지 못했습니다.");
+  throw new Error(IMAGE_MODEL_ERROR);
 }

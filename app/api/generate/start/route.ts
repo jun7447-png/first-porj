@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { createClient } from "@supabase/supabase-js";
-import { generateWithOpenAI } from "@/lib/image-generator";
+import { generateWithOpenAI, IMAGE_MODEL_ERROR } from "@/lib/image-generator";
 
 export const maxDuration = 300;
 
@@ -98,11 +98,10 @@ async function processJob(
       .from("image_jobs")
       .update({ status: "done", image_url: imageUrl })
       .eq("id", jobId);
-  } catch (e) {
-    const errorText = e instanceof Error ? e.message : "이미지 생성 실패";
+  } catch {
     await supabase
       .from("image_jobs")
-      .update({ status: "error", error_text: errorText })
+      .update({ status: "error", error_text: IMAGE_MODEL_ERROR })
       .eq("id", jobId);
   }
 }
