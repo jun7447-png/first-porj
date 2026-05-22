@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 60;
+export const maxDuration = 300; // Pro: 최대 300초, Hobby: 10초 고정
 
 /** UTF-8/한글 포함 body를 Blob으로 안전하게 전송 (ByteString 검증 우회) */
 function jsonBody(obj: unknown): Blob {
@@ -104,13 +104,18 @@ export async function POST(req: NextRequest) {
         ),
         Buffer.from(encoder.encode(resolvedPrompt)),
         Buffer.from(
-          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\ngpt-image-2`
+          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\ngpt-image-1`
         ),
         Buffer.from(
           `\r\n--${boundary}\r\nContent-Disposition: form-data; name="n"\r\n\r\n1`
         ),
+        // 512x1024 → 처리 시간 단축 (1024x1024 대비 50% 감소)
         Buffer.from(
           `\r\n--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\n1024x1024`
+        ),
+        // URL 반환 요청 → 서버에서 이미지 다운로드 단계 생략 → 응답 시간 단축
+        Buffer.from(
+          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="response_format"\r\n\r\nurl`
         ),
         Buffer.from(`\r\n--${boundary}--\r\n`),
       ];
@@ -132,26 +137,23 @@ export async function POST(req: NextRequest) {
       if (!oaRes.ok) {
         const errText = await oaRes.text();
         return NextResponse.json(
-          { error: `gpt-image-2 생성 실패 (${oaRes.status}): ${errText.slice(0, 400)}` },
+          { error: `이미지 생성 실패 (${oaRes.status}): ${errText.slice(0, 400)}` },
           { status: 500 }
         );
       }
 
       const oaData = await oaRes.json();
-      const b64 = oaData.data?.[0]?.b64_json as string | undefined;
 
-      if (b64) {
-        return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
+      // URL 직접 반환 (base64 변환 없음 → 응답 크기·시간 대폭 감소)
+      const imageUrl = oaData.data?.[0]?.url as string | undefined;
+      if (imageUrl) {
+        return NextResponse.json({ imageUrl });
       }
 
-      const remoteUrl = oaData.data?.[0]?.url as string | undefined;
-      if (remoteUrl) {
-        const fetched = await fetch(remoteUrl);
-        const imgBuf = Buffer.from(await fetched.arrayBuffer());
-        const imgMime = fetched.headers.get("content-type") ?? "image/png";
-        return NextResponse.json({
-          imageUrl: `data:${imgMime};base64,${imgBuf.toString("base64")}`,
-        });
+      // b64_json 폴백
+      const b64 = oaData.data?.[0]?.b64_json as string | undefined;
+      if (b64) {
+        return NextResponse.json({ imageUrl: `data:image/png;base64,${b64}` });
       }
 
       return NextResponse.json(

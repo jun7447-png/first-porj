@@ -1,5 +1,7 @@
 타이포그래피가  이미지 상하좌우  정중앙에 배치 크게 강조되어 적용.
+타이포그래피 문구는 사용자가 직접입력한 문구 또는 선택반영문구에서 선택한 1개의 문구로만 적용.
 해당 글자 라인의 불투명도60%의 흰색 띠 적용.
+업로드 이미지는 변형없이 배경이미지로만 사용.
 The product is not a design reference; it is the final product that must be preserved exactly.
 
 타이포그래피 예시 문구:  "올해의 인기 Pick"
@@ -21,7 +23,7 @@ The product is not a design reference; it is the final product that must be pres
 14. 아직도 고민 중? 곧 품절됩니다
 15. 삶의 질 수직 상승 치트키
 16. 나를 위한 가장 완벽한 선택
-17 매일 쓰고 싶은 일상 필수가전/템
+17 매일 쓰고 싶은 일상 필수템
 18. 한 번 맛보면 헤어 나올 수 없는 만족감
 19. 돈값 하는 진짜 꿀템 등장
 20. 당신의 일상을 더 특별하게
