@@ -18,7 +18,8 @@ export default function ToolPage() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null); // 확대보기 대상
+  const [imageHistory, setImageHistory] = useState<string[]>([]); // 이전 생성 결과 (세션 임시)
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +94,7 @@ export default function ToolPage() {
     if (!f.type.startsWith("image/")) return;
     setFile(f);
     setResultImage(null);
+    setImageHistory([]); // 새 이미지 업로드 시 히스토리 초기화
     setError("");
     const reader = new FileReader();
     reader.onload = (e) => setUploadPreview(e.target?.result as string);
@@ -206,7 +208,11 @@ export default function ToolPage() {
 
       // 4. 폴링으로 완료 대기
       const imageUrl = await pollJob(jobId);
-      setResultImage(imageUrl);
+      // 기존 결과가 있으면 히스토리에 추가 후 새 결과로 교체
+      setResultImage((prev) => {
+        if (prev) setImageHistory((h) => [prev, ...h]);
+        return imageUrl;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "생성 실패. 다시 시도해 주세요.");
     } finally {
@@ -218,11 +224,11 @@ export default function ToolPage() {
 
   return (
     <main className="min-h-screen bg-[#09090b] text-white">
-      {/* 라이트박스 */}
-      {lightboxOpen && resultImage && (
+      {/* 라이트박스 — 현재 결과 및 히스토리 공용 */}
+      {lightboxImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-          onClick={() => setLightboxOpen(false)}
+          onClick={() => setLightboxImage(null)}
         >
           <div
             className="relative"
@@ -230,7 +236,7 @@ export default function ToolPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => setLightboxOpen(false)}
+              onClick={() => setLightboxImage(null)}
               className="absolute -right-3 -top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 shadow-lg transition-all hover:bg-zinc-700 hover:text-white"
               aria-label="닫기"
             >
@@ -239,8 +245,8 @@ export default function ToolPage() {
               </svg>
             </button>
             <img
-              src={resultImage}
-              alt="생성 결과 확대"
+              src={lightboxImage}
+              alt="이미지 확대보기"
               className="w-full rounded-2xl border border-zinc-700 shadow-2xl"
             />
           </div>
@@ -359,7 +365,7 @@ export default function ToolPage() {
                   resultImage ? "cursor-pointer" : ""
                 }`}
               style={{ width: 300, height: 300 }}
-                onClick={() => resultImage && setLightboxOpen(true)}
+                onClick={() => resultImage && setLightboxImage(resultImage)}
               >
                 {resultImage ? (
                   <>
@@ -434,6 +440,53 @@ export default function ToolPage() {
                 다시생성
               </button>
             </div>
+
+            {/* 이전 생성 결과 히스토리 (세션 임시저장) */}
+            {imageHistory.length > 0 && (
+              <div className="flex flex-col gap-3 mt-2">
+                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                  이전 생성 결과 ({imageHistory.length}개)
+                </p>
+                {imageHistory.map((imgUrl, idx) => (
+                  <div key={idx} className="flex flex-col gap-2">
+                    <div
+                      className="relative cursor-pointer overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900"
+                      style={{ width: 300, height: 300 }}
+                      onClick={() => setLightboxImage(imgUrl)}
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`이전 결과 ${idx + 1}`}
+                        className="h-full w-full object-contain transition-opacity hover:opacity-90"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity hover:opacity-100">
+                        <div className="flex items-center gap-2 rounded-xl bg-black/60 px-4 py-2 backdrop-blur-sm">
+                          <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                          </svg>
+                          <span className="text-sm text-white">확대보기</span>
+                        </div>
+                      </div>
+                      <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs text-zinc-400 backdrop-blur-sm">
+                        {idx + 1}번째 이전
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = imgUrl;
+                        a.download = `result-prev-${idx + 1}.png`;
+                        a.click();
+                      }}
+                      className="rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-400 transition-all hover:border-violet-500/50 hover:text-violet-300"
+                      style={{ width: 300 }}
+                    >
+                      다운로드
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── 우측: 프롬프트 (500px 고정, 좌측 컬럼 높이에 맞춤) ─── */}
