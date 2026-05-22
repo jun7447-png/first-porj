@@ -26,6 +26,40 @@ export default function ToolPage() {
   const isT4 = type === "4";
   const [t4Phrase, setT4Phrase] = useState("올해의 인기 Pick"); // 예시 기본값
 
+  // prompt4.txt 선택 반영 문구 30개
+  const T4_PHRASES = [
+    "Best 리뷰 추천 제품!",
+    "누적 판매 1위, 이유가 있습니다",
+    "평점 4.9점이 증명하는 퀄리티",
+    "실제 구매자 극찬 아이템!",
+    "한 번 쓰면 정착하게 되는 템",
+    "SNS에서 난리 난 바로 그 화제작",
+    "지인 추천으로 가장 많이 사는 제품",
+    "이달의 완소템! 놓치지 마세요",
+    "품절 임박! 수량 얼마 남지 않았어요",
+    "역대급 특가, 오늘 마감!",
+    "한정 수량 / 재입고 완료!",
+    "망설이면 배송만 늦어질 뿐",
+    "지금 사야 가장 저렴한 혜택",
+    "아직도 고민 중? 곧 품절됩니다",
+    "삶의 질 수직 상승 치트키",
+    "나를 위한 가장 완벽한 선택",
+    "매일 쓰고 싶은 일상 필수가전/템",
+    "한 번 맛보면 헤어 나올 수 없는 만족감",
+    "돈값 하는 진짜 꿀템 등장",
+    "당신의 일상을 더 특별하게",
+    "소소하지만 확실한 행복(소확행) 메이커",
+    "선물용으로도 실패 없는 만족도 100%",
+    "지금 바로 확인해 보세요!",
+    "클릭할 수밖에 없는 역대급 퀄리티",
+    "안 사면 무조건 손해 보는 템",
+    "드디어 찾았다, 인생 아이템!",
+    "이건 꼭 소장해야 해",
+    "첫 눈에 반할 수밖에 없는 비주얼",
+    "MD가 강력 추천하는 히든 템",
+    "요즘 가장 핫한 트렌드 아이템",
+  ];
+
   // /tools/5 전용 구조화 입력 상태
   const isT5 = type === "5";
   const [t5Product, setT5Product] = useState("");          // 제품명
@@ -443,8 +477,30 @@ export default function ToolPage() {
                   </ul>
                 </div>
 
+                {/* 선택 반영 문구 30개 */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-semibold text-white">선택 반영 문구</p>
+                  <p className="text-xs text-zinc-500">문구를 클릭하면 강조문구 입력란에 바로 반영됩니다.</p>
+                  <div className="max-h-52 overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900/60">
+                    {T4_PHRASES.map((phrase, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setT4Phrase(phrase)}
+                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-violet-500/10 hover:text-violet-300 ${
+                          t4Phrase === phrase
+                            ? "bg-violet-500/15 text-violet-300 font-medium"
+                            : "text-zinc-300"
+                        } ${idx !== T4_PHRASES.length - 1 ? "border-b border-zinc-800" : ""}`}
+                      >
+                        <span className="w-6 shrink-0 text-xs text-zinc-600">{idx + 1}.</span>
+                        {phrase}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-2.5 text-xs text-violet-300">
-                  💡 강조문구를 직접 수정하고 AI이미지생성 버튼을 클릭하세요.
+                  💡 강조문구를 직접 수정하거나 목록에서 선택 후 AI이미지생성 버튼을 클릭하세요.
                 </p>
               </div>
             ) : isT5 ? (
