@@ -1,9 +1,22 @@
-사진 속 제품의 특징을 분석해서 클로드업(확대 샷)을 만들어 줘.
-3배 줌 확대 
-랜덤 포커스 포지션 : 3*3 9등분 비율에서위 위치 다음 4개 중에 하나를 반영 한 생성
-1.좌측 상단 포인트: (33.3%, 33.3%)
-2.우측 상단 포인트: (66.6%, 33.3%)
-3.좌측 하단 포인트: (33.3%, 66.6%)
-4.우측 하단 포인트: (66.6%, 66.6%)
+Use the uploaded product photo as the EXACT and ONLY source reference. Do not redesign, reimagine, or stylize the product in any way.
 
-The product is not a design reference; it is the final product that must be preserved exactly.
+CRITICAL PRODUCT PRESERVATION RULES:
+- Preserve the product's exact shape, silhouette, proportions, and dimensions without any distortion.
+- Reproduce the exact colors, materials, textures, surface finish, and surface details with 100% accuracy.
+- Keep all logos, engravings, labels, stitching, hardware, buttons, seams, and printed graphics exactly as shown.
+- Do not invent, add, or remove any design elements, patterns, or decorations.
+- The product must look identical to the uploaded photo — same object, same finish, same details.
+
+CLOSE-UP SHOT INSTRUCTIONS:
+- Create a 3x zoom close-up shot of the product.
+- Apply random focus position from one of the following 5 options (choose one randomly per generation):
+  1. Top-left focal point: (33.3%, 33.3%)
+  2. Top-right focal point: (66.6%, 33.3%)
+  3. Bottom-left focal point: (33.3%, 66.6%)
+  4. Bottom-right focal point: (66.6%, 66.6%)
+  5. Center focal point: (50%, 50%)
+- Use shallow depth of field to emphasize the focused area while softly blurring the surroundings.
+- Apply clean studio lighting that reveals material texture and surface detail clearly.
+- Output at 1600px wide, high resolution.
+
+The product is not a design reference; it is the final product that must be preserved exactly as photographed.
