@@ -7,6 +7,9 @@ export async function POST(req: NextRequest) {
     if (!productName?.trim()) {
       return NextResponse.json({ error: "제품명을 입력해 주세요." }, { status: 400 });
     }
+    if (productName.length > 100) {
+      return NextResponse.json({ error: "제품명은 100자 이하로 입력해 주세요." }, { status: 400 });
+    }
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "OPENAI_API_KEY가 설정되지 않았습니다." }, { status: 500 });

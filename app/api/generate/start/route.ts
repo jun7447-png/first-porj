@@ -34,6 +34,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+    const MAX_SIZE_MB = 10;
+    if (!ALLOWED_TYPES.includes(imageFile.type)) {
+      return NextResponse.json({ error: "JPG, PNG, WEBP 형식만 지원합니다." }, { status: 400 });
+    }
+    if (imageFile.size > MAX_SIZE_MB * 1024 * 1024) {
+      return NextResponse.json({ error: `이미지는 ${MAX_SIZE_MB}MB 이하여야 합니다.` }, { status: 400 });
+    }
+    if (prompt.length > 8000) {
+      return NextResponse.json({ error: "프롬프트가 너무 깁니다." }, { status: 400 });
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ fallback: true });
     }
