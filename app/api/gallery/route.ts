@@ -12,6 +12,7 @@ export async function GET() {
     .select("id, image_url, created_at")
     .eq("status", "done")
     .not("image_url", "is", null)
+    .not("image_url", "like", "data:%")
     .order("created_at", { ascending: false })
     .limit(60);
 

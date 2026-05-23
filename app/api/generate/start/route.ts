@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { generateWithOpenAI, IMAGE_MODEL_ERROR } from "@/lib/image-generator";
 
 export const maxDuration = 300;
@@ -90,6 +90,28 @@ export async function POST(req: NextRequest) {
   }
 }
 
+async function uploadBase64ToStorage(
+  supabase: SupabaseClient,
+  jobId: string,
+  dataUrl: string
+): Promise<string> {
+  const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
+  const imageBuffer = Buffer.from(base64, "base64");
+  const storagePath = `public/${jobId}.png`;
+
+  const { error } = await supabase.storage
+    .from("generated-images")
+    .upload(storagePath, imageBuffer, { contentType: "image/png", upsert: false });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage
+    .from("generated-images")
+    .getPublicUrl(storagePath);
+
+  return data.publicUrl;
+}
+
 async function processJob(
   jobId: string,
   buffer: Buffer,
@@ -104,7 +126,12 @@ async function processJob(
       .update({ status: "processing" })
       .eq("id", jobId);
 
-    const imageUrl = await generateWithOpenAI(buffer, mimeType, fileName, prompt);
+    const imageResult = await generateWithOpenAI(buffer, mimeType, fileName, prompt);
+
+    // base64 데이터는 Storage에 업로드하고 영구 URL로 교체
+    const imageUrl = imageResult.startsWith("data:")
+      ? await uploadBase64ToStorage(supabase, jobId, imageResult)
+      : imageResult;
 
     await supabase
       .from("image_jobs")
