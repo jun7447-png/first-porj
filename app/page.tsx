@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import HowItWorks from "@/components/HowItWorks";
@@ -75,6 +76,21 @@ export default function Home() {
       </div>
 
       <Hero onStart={handleStart} />
+
+      {/* 갤러리 버튼 — Features 위, 가로 전체 */}
+      <div className="px-6 pb-6">
+        <Link
+          href="/gallery"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 py-4 text-sm font-medium text-zinc-300 transition-all hover:border-violet-500/50 hover:bg-zinc-800 hover:text-white hover:shadow-lg hover:shadow-violet-500/10"
+        >
+          <span>🖼️</span>
+          갤러리 보기
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+        </Link>
+      </div>
+
       <Features />
       <HowItWorks />
 
