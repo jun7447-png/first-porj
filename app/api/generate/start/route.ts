@@ -163,10 +163,11 @@ async function processJob(
       .from("image_jobs")
       .update({ status: "done", image_url: imageUrl })
       .eq("id", jobId);
-  } catch {
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : IMAGE_MODEL_ERROR;
     await supabase
       .from("image_jobs")
-      .update({ status: "error", error_text: IMAGE_MODEL_ERROR })
+      .update({ status: "error", error_text: errMsg })
       .eq("id", jobId);
   }
 }

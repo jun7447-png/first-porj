@@ -87,7 +87,9 @@ export async function generateWithOpenAI(
   });
 
   if (!res.ok) {
-    throw new Error(IMAGE_MODEL_ERROR);
+    const errData = await res.json().catch(() => null);
+    const detail = errData?.error?.message ?? `HTTP ${res.status}`;
+    throw new Error(`OpenAI 오류: ${detail}`);
   }
 
   const data = await res.json();
