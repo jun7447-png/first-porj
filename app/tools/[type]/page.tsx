@@ -111,11 +111,12 @@ export default function ToolPage() {
   };
 
   // 이미지 생성
-  /** 가로 1200px 기준 리사이즈 + JPEG 85% 압축 */
-  const compressImage = (src: File, maxWidth = 1200): Promise<File> =>
-    new Promise((resolve) => {
+  /** 최대 maxWidth px로 리사이즈 + JPEG 80% 압축 */
+  const compressImage = (src: File, maxWidth = 1024): Promise<File> =>
+    new Promise((resolve, reject) => {
       const img = new Image();
       const url = URL.createObjectURL(src);
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("이미지를 불러올 수 없습니다.")); };
       img.onload = () => {
         URL.revokeObjectURL(url);
         let { naturalWidth: w, naturalHeight: h } = img;
@@ -124,8 +125,11 @@ export default function ToolPage() {
         canvas.width = w; canvas.height = h;
         canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
         canvas.toBlob(
-          (blob) => resolve(new File([blob!], "image.jpg", { type: "image/jpeg" })),
-          "image/jpeg", 0.85
+          (blob) => {
+            if (!blob) { reject(new Error("이미지 압축에 실패했습니다.")); return; }
+            resolve(new File([blob], "image.jpg", { type: "image/jpeg" }));
+          },
+          "image/jpeg", 0.80
         );
       };
       img.src = url;
@@ -169,8 +173,8 @@ export default function ToolPage() {
     setError("");
 
     try {
-      // 1. 가로 1800px 리사이징 (해상도·왜곡 균형점)
-      const compressed = await compressImage(file, 1800);
+      // 1. OpenAI 출력 해상도(1024px)에 맞춰 리사이징 — 타임아웃 방지
+      const compressed = await compressImage(file, 1024);
       const safeFile = new File([compressed], "image.jpg", { type: "image/jpeg" });
 
       // 2. 한글 프롬프트 base64 인코딩 (ByteString 오류 방지)
