@@ -96,13 +96,16 @@ async function uploadBase64ToStorage(
   jobId: string,
   dataUrl: string
 ): Promise<string> {
+  const mimeMatch = dataUrl.match(/^data:(image\/\w+);base64,/);
+  const mime = mimeMatch?.[1] ?? "image/jpeg";
+  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
   const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
   const imageBuffer = Buffer.from(base64, "base64");
-  const storagePath = `public/${jobId}.png`;
+  const storagePath = `public/${jobId}.${ext}`;
 
   const { error } = await supabase.storage
     .from("generated-images")
-    .upload(storagePath, imageBuffer, { contentType: "image/png", upsert: false });
+    .upload(storagePath, imageBuffer, { contentType: mime, upsert: false });
 
   if (error) throw error;
 

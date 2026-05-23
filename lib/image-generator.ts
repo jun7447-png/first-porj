@@ -44,7 +44,13 @@ export async function generateWithOpenAI(
       `\r\n--${boundary}\r\nContent-Disposition: form-data; name="n"\r\n\r\n1`
     ),
     Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\n1024x1024`
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\nauto`
+    ),
+    Buffer.from(
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="output_format"\r\n\r\njpeg`
+    ),
+    Buffer.from(
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="output_compression"\r\n\r\n80`
     ),
     Buffer.from(`\r\n--${boundary}--\r\n`),
   ];

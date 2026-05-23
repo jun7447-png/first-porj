@@ -173,8 +173,8 @@ export default function ToolPage() {
     setError("");
 
     try {
-      // 1. OpenAI 출력 해상도(1024px)에 맞춰 리사이징 — 타임아웃 방지
-      const compressed = await compressImage(file, 1024);
+      // 1. 최대 출력 해상도(1536px)에 맞춰 리사이징
+      const compressed = await compressImage(file, 1536);
       const safeFile = new File([compressed], "image.jpg", { type: "image/jpeg" });
 
       // 2. 한글 프롬프트 base64 인코딩 (ByteString 오류 방지)
