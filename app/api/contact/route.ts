@@ -13,6 +13,20 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+// 비ASCII 문자를 HTML 숫자 엔티티로 변환 — 인코딩 독립적
+function toNcr(str: string): string {
+  return Array.from(str)
+    .map((c) => {
+      const code = c.codePointAt(0)!;
+      return code > 127 ? `&#${code};` : c;
+    })
+    .join("");
+}
+
+function safe(str: string): string {
+  return toNcr(escapeHtml(str));
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { name, email, subject, message } = await req.json();
@@ -41,44 +55,48 @@ export async function POST(req: NextRequest) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    const safeName    = escapeHtml(name);
-    const safeEmail   = escapeHtml(email);
-    const safeSubject = escapeHtml(subject);
-    const safeMessage = escapeHtml(message);
+    const safeName    = safe(name);
+    const safeEmail   = escapeHtml(email);   // 이메일은 NCR 불필요
+    const safeSubject = safe(subject);
+    const safeMessage = safe(message).replace(/\n/g, "<br/>");
 
     await resend.emails.send({
       from: "SnapPage Contact <onboarding@resend.dev>",
       to: ADMIN_EMAIL,
       replyTo: email,
-      subject: `[SnapPage 문의] ${safeSubject}`,
+      subject: `[SnapPage] ${subject}`,   // 제목은 원문 그대로 (Resend가 RFC2047 처리)
+      text: `이름: ${name}\n이메일: ${email}\n제목: ${subject}\n\n내용:\n${message}`,
       html: `<!DOCTYPE html>
-        <html lang="ko">
-        <head><meta charset="UTF-8" /><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /></head>
-        <body>
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #09090b; color: #fff; border-radius: 12px;">
-          <h2 style="color: #a78bfa; margin-bottom: 24px;">SnapPage 새 문의가 도착했습니다</h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 10px 0; color: #71717a; width: 80px;">이름</td>
-              <td style="padding: 10px 0; color: #f4f4f5;">${safeName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px 0; color: #71717a;">이메일</td>
-              <td style="padding: 10px 0; color: #f4f4f5;"><a href="mailto:${safeEmail}" style="color: #67e8f9;">${safeEmail}</a></td>
-            </tr>
-            <tr>
-              <td style="padding: 10px 0; color: #71717a;">제목</td>
-              <td style="padding: 10px 0; color: #f4f4f5;">${safeSubject}</td>
-            </tr>
-          </table>
-          <hr style="border: none; border-top: 1px solid #27272a; margin: 20px 0;" />
-          <p style="color: #71717a; margin-bottom: 8px;">내용</p>
-          <p style="color: #f4f4f5; white-space: pre-line; line-height: 1.7;">${safeMessage}</p>
-          <hr style="border: none; border-top: 1px solid #27272a; margin: 20px 0;" />
-          <p style="color: #52525b; font-size: 12px;">이 메일은 SnapPage 문의 폼을 통해 발송되었습니다.</p>
-        </div>
-        </body></html>
-      `,
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body style="margin:0;padding:0;background:#09090b;">
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#09090b;color:#fff;border-radius:12px;">
+  <h2 style="color:#a78bfa;margin-bottom:24px;">SnapPage &#49352; &#47928;&#51032;&#44032; &#46020;&#52856;&#54588;&#49845;&#45768;&#45796;</h2>
+  <table style="width:100%;border-collapse:collapse;">
+    <tr>
+      <td style="padding:10px 0;color:#71717a;width:80px;">&#51060;&#47492;</td>
+      <td style="padding:10px 0;color:#f4f4f5;">${safeName}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 0;color:#71717a;">&#51060;&#47700;&#51068;</td>
+      <td style="padding:10px 0;color:#f4f4f5;"><a href="mailto:${safeEmail}" style="color:#67e8f9;">${safeEmail}</a></td>
+    </tr>
+    <tr>
+      <td style="padding:10px 0;color:#71717a;">&#51228;&#47785;</td>
+      <td style="padding:10px 0;color:#f4f4f5;">${safeSubject}</td>
+    </tr>
+  </table>
+  <hr style="border:none;border-top:1px solid #27272a;margin:20px 0;">
+  <p style="color:#71717a;margin-bottom:8px;">&#45236;&#50857;</p>
+  <p style="color:#f4f4f5;line-height:1.7;">${safeMessage}</p>
+  <hr style="border:none;border-top:1px solid #27272a;margin:20px 0;">
+  <p style="color:#52525b;font-size:12px;">&#51060; &#47700;&#51068;&#51008; SnapPage &#47928;&#51032; &#54392;&#51012; &#53685;&#54644; &#48156;&#49569;&#46104;&#50632;&#49845;&#45768;&#45796;.</p>
+</div>
+</body>
+</html>`,
     });
 
     return NextResponse.json({ success: true });
