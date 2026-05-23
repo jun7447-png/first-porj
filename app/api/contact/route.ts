@@ -47,11 +47,14 @@ export async function POST(req: NextRequest) {
     const safeMessage = escapeHtml(message);
 
     await resend.emails.send({
-      from: "SnapPage 문의 <onboarding@resend.dev>",
+      from: "SnapPage Contact <onboarding@resend.dev>",
       to: ADMIN_EMAIL,
       replyTo: email,
       subject: `[SnapPage 문의] ${safeSubject}`,
-      html: `
+      html: `<!DOCTYPE html>
+        <html lang="ko">
+        <head><meta charset="UTF-8" /><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /></head>
+        <body>
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #09090b; color: #fff; border-radius: 12px;">
           <h2 style="color: #a78bfa; margin-bottom: 24px;">SnapPage 새 문의가 도착했습니다</h2>
           <table style="width: 100%; border-collapse: collapse;">
@@ -74,6 +77,7 @@ export async function POST(req: NextRequest) {
           <hr style="border: none; border-top: 1px solid #27272a; margin: 20px 0;" />
           <p style="color: #52525b; font-size: 12px;">이 메일은 SnapPage 문의 폼을 통해 발송되었습니다.</p>
         </div>
+        </body></html>
       `,
     });
 
