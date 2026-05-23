@@ -48,6 +48,14 @@ export const TOOLS: ToolConfig[] = [
     promptIndex: 4,
     emoji: "📋",
   },
+  {
+    type: "6",
+    name: "모델샷",
+    shortName: "모델샷",
+    description: "제품을 모델과 함께 연출한 화보 이미지를 생성합니다",
+    promptIndex: 5,
+    emoji: "👗",
+  },
 ];
 
 export function getToolByType(type: string): ToolConfig | undefined {

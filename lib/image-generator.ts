@@ -15,12 +15,17 @@ export function resolvePromptVariables(prompt: string): string {
 export const IMAGE_MODEL_ERROR =
   "현재 Chatgpt 이미지 생성 모델이 원활하지 않습니다.잠시 후 다시 시도해 주세요!";
 
-/** 사용 모델: openai/gpt-image-2 (images/edits, UTF-8 멀티파트 직접 구성) */
+/** 사용 모델: openai/gpt-image-2 (images/edits, UTF-8 멀티파트 직접 구성)
+ *  buffer2/mimeType2/fileName2: 두 번째 이미지 (모델샷 등에서 선택적 사용)
+ */
 export async function generateWithOpenAI(
   buffer: Buffer,
   mimeType: string,
   fileName: string,
-  prompt: string
+  prompt: string,
+  buffer2?: Buffer,
+  mimeType2?: string,
+  fileName2?: string
 ): Promise<string> {
   const resolved = resolvePromptVariables(prompt);
   const boundary = `SnapPage${Date.now()}${Math.random().toString(36).slice(2)}`;
@@ -33,6 +38,21 @@ export async function generateWithOpenAI(
         `Content-Type: ${mimeType}\r\n\r\n`
     ),
     buffer,
+  ];
+
+  // 두 번째 이미지 (모델샷: 모델인물사진)
+  if (buffer2 && mimeType2 && fileName2) {
+    parts.push(
+      Buffer.from(
+        `\r\n--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="image"; filename="${fileName2}"\r\n` +
+          `Content-Type: ${mimeType2}\r\n\r\n`
+      ),
+      buffer2
+    );
+  }
+
+  parts.push(
     Buffer.from(
       `\r\n--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n`
     ),
@@ -52,8 +72,8 @@ export async function generateWithOpenAI(
     Buffer.from(
       `\r\n--${boundary}\r\nContent-Disposition: form-data; name="output_compression"\r\n\r\n80`
     ),
-    Buffer.from(`\r\n--${boundary}--\r\n`),
-  ];
+    Buffer.from(`\r\n--${boundary}--\r\n`)
+  );
 
   const body = new Blob([Buffer.concat(parts)], { type: "application/octet-stream" });
 

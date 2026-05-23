@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { generateWithOpenAI, IMAGE_MODEL_ERROR } from "@/lib/image-generator";
+import fs from "fs";
+import path from "path";
 
 export const maxDuration = 300;
 
-// 서버 측 Supabase 클라이언트 (서비스 컨텍스트)
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,8 +18,8 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const imageFile = formData.get("image") as File | null;
+    const modelImageFile = formData.get("model_image") as File | null;
 
-    // base64 디코딩 (한글 프롬프트 ByteString 우회)
     const promptB64 = formData.get("prompt_b64") as string | null;
     const promptRaw = formData.get("prompt") as string | null;
     const userEmail = (formData.get("user_email") as string | null) ?? "";
@@ -55,10 +56,27 @@ export async function POST(req: NextRequest) {
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const mimeType = imageFile.type || "image/jpeg";
-    const fileName =
-      imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.jpg";
+    const fileName = imageFile.name.replace(/[^\x00-\x7F]/g, "") || "image.jpg";
 
-    // Supabase에 job 레코드 생성
+    // 두 번째 이미지(모델샷): 업로드 없으면 model1.png 자동 사용
+    let buffer2: Buffer | undefined;
+    let mimeType2: string | undefined;
+    let fileName2: string | undefined;
+
+    if (toolType === "6") {
+      if (modelImageFile) {
+        const bytes2 = await modelImageFile.arrayBuffer();
+        buffer2 = Buffer.from(bytes2);
+        mimeType2 = modelImageFile.type || "image/jpeg";
+        fileName2 = modelImageFile.name.replace(/[^\x00-\x7F]/g, "") || "model.jpg";
+      } else {
+        const defaultPath = path.join(process.cwd(), "prompt", "model1.png");
+        buffer2 = fs.readFileSync(defaultPath);
+        mimeType2 = "image/png";
+        fileName2 = "model1.png";
+      }
+    }
+
     const supabase = getSupabase();
     const { data: job, error: insertErr } = await supabase
       .from("image_jobs")
@@ -81,10 +99,8 @@ export async function POST(req: NextRequest) {
 
     const jobId = job.id as string;
 
-    // waitUntil: 응답 반환 후 백그라운드에서 계속 실행
-    waitUntil(processJob(jobId, buffer, mimeType, fileName, prompt));
+    waitUntil(processJob(jobId, buffer, mimeType, fileName, prompt, buffer2, mimeType2, fileName2));
 
-    // 즉시 jobId 반환 → 클라이언트는 폴링 시작
     return NextResponse.json({ jobId });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "요청 처리 실패";
@@ -122,7 +138,10 @@ async function processJob(
   buffer: Buffer,
   mimeType: string,
   fileName: string,
-  prompt: string
+  prompt: string,
+  buffer2?: Buffer,
+  mimeType2?: string,
+  fileName2?: string
 ) {
   const supabase = getSupabase();
   try {
@@ -131,9 +150,11 @@ async function processJob(
       .update({ status: "processing" })
       .eq("id", jobId);
 
-    const imageResult = await generateWithOpenAI(buffer, mimeType, fileName, prompt);
+    const imageResult = await generateWithOpenAI(
+      buffer, mimeType, fileName, prompt,
+      buffer2, mimeType2, fileName2
+    );
 
-    // base64 데이터는 Storage에 업로드하고 영구 URL로 교체
     const imageUrl = imageResult.startsWith("data:")
       ? await uploadBase64ToStorage(supabase, jobId, imageResult)
       : imageResult;

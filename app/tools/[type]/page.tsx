@@ -72,6 +72,18 @@ export default function ToolPage() {
   const [t5CopyLoading, setT5CopyLoading] = useState(false);   // 문구 생성 중
   const [t5CopyDone, setT5CopyDone] = useState(false);         // 최초 생성 여부
 
+  // /tools/6 전용: 모델샷 (2번째 이미지 + 드롭다운 선택)
+  const isT6 = type === "6";
+  const [file2, setFile2] = useState<File | null>(null);
+  const [uploadPreview2, setUploadPreview2] = useState<string | null>(null);
+  const [isDragging2, setIsDragging2] = useState(false);
+  const inputRef2 = useRef<HTMLInputElement>(null);
+  const [t6ProductType, setT6ProductType] = useState("토트백");
+  const [t6Scene, setT6Scene] = useState("손에 들고 있음");
+  const [t6Mood, setT6Mood] = useState("고급스러운");
+  const [t6Background, setT6Background] = useState("심플한 사무공간");
+  const [t6Usage, setT6Usage] = useState("스마트스토어 상세페이지");
+
   // 인증 체크 + 기본 프롬프트 로드
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -162,10 +174,16 @@ export default function ToolPage() {
       "업로드 이미지는 변형없이 배경이미지로만 사용.\n" +
       "The product is not a design reference; it is the final product that must be preserved exactly.";
 
+    const T6_PROMPT = isT6
+      ? `${prompt}\n\n제품 유형: ${t6ProductType}\n사용 장면: ${t6Scene}\n원하는 분위기: ${t6Mood}\n배경: ${t6Background}\n이미지 용도: ${t6Usage}`
+      : "";
+
     const activePrompt = isT4
       ? T4_BASE
       : isT5
       ? `${prompt}\n\n제품명: "${t5Product}"\n타이틀: "${t5Title}"\n제품특징: "${t5Features}"\n후킹 문구: "${t5Hook}"\n감성 코멘트: "${t5Comment}"`
+      : isT6
+      ? T6_PROMPT
       : prompt;
 
     if (!file || !activePrompt.trim()) return;
@@ -189,6 +207,13 @@ export default function ToolPage() {
       formData.append("prompt_b64", promptB64);
       if (userEmail) formData.append("user_email", userEmail);
       formData.append("tool_type", type);
+
+      // T6: 모델 이미지 추가 (없으면 서버에서 model1.png 자동 사용)
+      if (isT6 && file2) {
+        const compressedModel = await compressImage(file2, 1536);
+        const safeModel = new File([compressedModel], "model.jpg", { type: "image/jpeg" });
+        formData.append("model_image", safeModel);
+      }
 
       // 3. 비동기 작업 시작 → jobId 즉시 반환
       const startRes = await fetch("/api/generate/start", {
@@ -357,6 +382,72 @@ export default function ToolPage() {
                 )}
               </div>
             </div>
+
+            {/* T6 전용: 모델인물사진 업로드 */}
+            {isT6 && (
+              <div>
+                <p className="mb-1 text-sm font-semibold text-white">모델인물사진</p>
+                <p className="mb-2 text-xs text-zinc-500">미업로드 시 기본 모델 이미지를 사용합니다</p>
+                <div
+                  className={`relative cursor-pointer overflow-hidden rounded-2xl border-2 transition-all ${
+                    isDragging2
+                      ? "border-cyan-500 bg-cyan-500/10"
+                      : uploadPreview2
+                      ? "border-zinc-700"
+                      : "border-dashed border-zinc-700 hover:border-zinc-500 hover:bg-zinc-900/30"
+                  }`}
+                  style={{ width: 300, height: 200 }}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging2(true); }}
+                  onDragLeave={() => setIsDragging2(false)}
+                  onDrop={(e) => {
+                    e.preventDefault(); setIsDragging2(false);
+                    const f = e.dataTransfer.files[0];
+                    if (f?.type.startsWith("image/")) {
+                      setFile2(f);
+                      const reader = new FileReader();
+                      reader.onload = (ev) => setUploadPreview2(ev.target?.result as string);
+                      reader.readAsDataURL(f);
+                    }
+                  }}
+                  onClick={() => !uploadPreview2 && inputRef2.current?.click()}
+                >
+                  <input
+                    ref={inputRef2}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setFile2(f);
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setUploadPreview2(ev.target?.result as string);
+                        reader.readAsDataURL(f);
+                      }
+                    }}
+                  />
+                  {uploadPreview2 ? (
+                    <>
+                      <img src={uploadPreview2} alt="모델 이미지" className="h-full w-full object-contain" />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setFile2(null); setUploadPreview2(null); }}
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm hover:bg-black/80"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                      <span className="text-2xl">👤</span>
+                      <p className="text-xs font-medium text-zinc-400">모델 사진 업로드 (선택)</p>
+                      <p className="text-xs text-zinc-600">JPG, PNG, WEBP</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* 결과 이미지 박스 */}
             <div>
@@ -668,6 +759,64 @@ export default function ToolPage() {
                     />
                   </div>
                 </div>
+              </div>
+            ) : isT6 ? (
+              /* ── /tools/6 전용: 모델샷 드롭다운 선택 ── */
+              <div className="flex flex-1 flex-col gap-4" style={{ width: 500 }}>
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-5 flex flex-col gap-4">
+                  <p className="text-sm font-semibold text-white">촬영 조건 선택</p>
+                  <p className="text-xs text-zinc-500">각 항목을 선택하면 AI가 그에 맞는 모델샷을 생성합니다.</p>
+
+                  {[
+                    {
+                      label: "제품 유형",
+                      value: t6ProductType,
+                      setter: setT6ProductType,
+                      options: ["토트백", "핸드클러치", "카드지갑", "여권케이스", "키링"],
+                    },
+                    {
+                      label: "사용 장면",
+                      value: t6Scene,
+                      setter: setT6Scene,
+                      options: ["손에 들고 있음", "어깨에 메고 있음", "팔에 걸고 있음", "가방에 매달려 있음", "테이블 위에서 사용하는 장면"],
+                    },
+                    {
+                      label: "원하는 분위기",
+                      value: t6Mood,
+                      setter: setT6Mood,
+                      options: ["고급스러운", "자연스러운", "커리어우먼", "여행자", "한옥 감성", "공방 감성", "갤러리 분위기"],
+                    },
+                    {
+                      label: "배경",
+                      value: t6Background,
+                      setter: setT6Background,
+                      options: ["심플한 사무공간", "한옥 골목", "공방 내부", "카페", "호텔 로비", "흰 배경"],
+                    },
+                    {
+                      label: "이미지 용도",
+                      value: t6Usage,
+                      setter: setT6Usage,
+                      options: ["스마트스토어 상세페이지", "SNS 홍보", "썸네일", "배너", "제품 착용컷"],
+                    },
+                  ].map(({ label, value, setter, options }) => (
+                    <div key={label} className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-zinc-400">{label}</label>
+                      <select
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                      >
+                        {options.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-2.5 text-xs text-cyan-300">
+                  💡 원본 제품 이미지와 모델 사진을 업로드한 뒤 조건을 선택하고 AI이미지생성을 클릭하세요. 모델 사진 미업로드 시 기본 모델이 사용됩니다.
+                </p>
               </div>
             ) : (
               /* ── 일반 도구: 기존 단일 textarea ── */

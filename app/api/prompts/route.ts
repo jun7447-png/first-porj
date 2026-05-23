@@ -4,7 +4,7 @@ import path from "path";
 
 export async function GET() {
   try {
-    const prompts = Array.from({ length: 5 }, (_, i) => {
+    const prompts = Array.from({ length: 6 }, (_, i) => {
       const filePath = path.join(process.cwd(), "prompt", `prompt${i + 1}.txt`);
       return fs.readFileSync(filePath, "utf-8").trim();
     });
