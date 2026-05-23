@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getToolByType } from "@/lib/tools-config";
+import { saveImageHistory } from "@/lib/supabase-history";
 
 export default function ToolPage() {
   const router = useRouter();
@@ -208,6 +209,14 @@ export default function ToolPage() {
         if (prev) setImageHistory((h) => [prev, ...h]);
         return imageUrl;
       });
+
+      // Supabase에 히스토리 저장 (비동기, 실패해도 UI 영향 없음)
+      saveImageHistory({
+        imageUrl,
+        toolType: type,
+        toolName: tool!.name,
+        promptSummary: activePrompt.slice(0, 300),
+      }).catch(() => {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "생성 실패. 다시 시도해 주세요.");
     } finally {
