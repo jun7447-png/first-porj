@@ -106,7 +106,7 @@ export default function Home() {
         <p className="mb-2 text-sm font-medium uppercase tracking-widest text-cyan-400">Contact</p>
         <h2 className="text-3xl font-bold text-white">문의하기</h2>
         <p className="mx-auto mt-4 max-w-md text-zinc-400">
-          궁금한 점이나 제안 사항이 있으신가요? 언제든지 편하게 연락주세요.
+          궁금한 점이나 제안 사항이 있으신가요?
         </p>
         <Link
           href="/contact"
