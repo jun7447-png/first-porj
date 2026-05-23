@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 const steps = [
   {
     number: "01",
@@ -56,6 +58,20 @@ export default function HowItWorks() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 갤러리 버튼 */}
+        <div className="mt-12 text-center">
+          <Link
+            href="/gallery"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 px-6 py-3 text-sm font-medium text-zinc-300 transition-all hover:border-violet-500/50 hover:bg-zinc-800 hover:text-white hover:shadow-lg hover:shadow-violet-500/10"
+          >
+            <span>🖼️</span>
+            갤러리 보기
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
         </div>
 
       </div>
