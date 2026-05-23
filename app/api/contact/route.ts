@@ -64,8 +64,7 @@ export async function POST(req: NextRequest) {
       from: "SnapPage Contact <onboarding@resend.dev>",
       to: ADMIN_EMAIL,
       replyTo: email,
-      subject: `[SnapPage] ${subject}`,   // 제목은 원문 그대로 (Resend가 RFC2047 처리)
-      text: `이름: ${name}\n이메일: ${email}\n제목: ${subject}\n\n내용:\n${message}`,
+      subject: `[SnapPage] ${subject}`,
       html: `<!DOCTYPE html>
 <html>
 <head>
