@@ -31,10 +31,13 @@ export async function generateWithOpenAI(
   const boundary = `SnapPage${Date.now()}${Math.random().toString(36).slice(2)}`;
   const encoder = new TextEncoder();
 
+  // 이미지가 2장이면 배열 표기 image[] 사용 (단일은 image)
+  const imageFieldName = buffer2 ? "image[]" : "image";
+
   const parts: Buffer[] = [
     Buffer.from(
       `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="image"; filename="${fileName}"\r\n` +
+        `Content-Disposition: form-data; name="${imageFieldName}"; filename="${fileName}"\r\n` +
         `Content-Type: ${mimeType}\r\n\r\n`
     ),
     buffer,
@@ -45,7 +48,7 @@ export async function generateWithOpenAI(
     parts.push(
       Buffer.from(
         `\r\n--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="image"; filename="${fileName2}"\r\n` +
+          `Content-Disposition: form-data; name="${imageFieldName}"; filename="${fileName2}"\r\n` +
           `Content-Type: ${mimeType2}\r\n\r\n`
       ),
       buffer2
