@@ -9,12 +9,12 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("image_jobs")
-    .select("id, image_url, created_at")
+    .select("id, image_url, created_at, user_email")
     .eq("status", "done")
     .not("image_url", "is", null)
     .not("image_url", "like", "data:%")
     .order("created_at", { ascending: false })
-    .limit(60);
+    .limit(40);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

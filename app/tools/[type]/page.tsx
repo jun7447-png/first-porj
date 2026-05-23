@@ -21,6 +21,7 @@ export default function ToolPage() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null); // 확대보기 대상
   const [imageHistory, setImageHistory] = useState<string[]>([]); // 이전 생성 결과 (세션 임시)
   const [isDragging, setIsDragging] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // /tools/4 전용: 강조문구 입력 (프롬프트 비노출)
@@ -74,7 +75,8 @@ export default function ToolPage() {
   // 인증 체크 + 기본 프롬프트 로드
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.replace("/");
+      if (!session) { router.replace("/"); return; }
+      setUserEmail(session.user.email ?? "");
     });
 
     if (!tool) { router.replace("/"); return; }
@@ -181,6 +183,7 @@ export default function ToolPage() {
       const formData = new FormData();
       formData.append("image", safeFile);
       formData.append("prompt_b64", promptB64);
+      if (userEmail) formData.append("user_email", userEmail);
 
       // 3. 비동기 작업 시작 → jobId 즉시 반환
       const startRes = await fetch("/api/generate/start", {
