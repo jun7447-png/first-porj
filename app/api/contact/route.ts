@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const safeMessage = escapeHtml(message).replace(/\n/g, "<br>");
 
     await transporter.sendMail({
-      from: `"SnapPage 문의" <${process.env.GMAIL_USER}>`,
+      from: `"SnapPage" <${process.env.GMAIL_USER}>`,
       to: ADMIN_EMAIL,
       replyTo: email,
       subject: `[SnapPage 문의] ${subject}`,
