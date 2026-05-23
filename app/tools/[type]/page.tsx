@@ -263,7 +263,7 @@ export default function ToolPage() {
 
       {/* 헤더 */}
       <header className="flex items-center justify-between border-b border-zinc-800/60 px-6 py-4">
-        <Link
+        <a
           href="/"
           className="flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-zinc-300"
         >
@@ -271,7 +271,7 @@ export default function ToolPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
           메인으로
-        </Link>
+        </a>
         <span className="flex items-center gap-2 text-2xl font-bold text-white" style={{ marginTop: 50, marginBottom: 50 }}>
           <span className="text-3xl">{tool.emoji}</span>
           {tool.name}
