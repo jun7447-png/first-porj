@@ -188,6 +188,7 @@ export default function ToolPage() {
       formData.append("image", safeFile);
       formData.append("prompt_b64", promptB64);
       if (userEmail) formData.append("user_email", userEmail);
+      formData.append("tool_type", type);
 
       // 3. 비동기 작업 시작 → jobId 즉시 반환
       const startRes = await fetch("/api/generate/start", {

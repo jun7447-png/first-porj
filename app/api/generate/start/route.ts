@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     const promptB64 = formData.get("prompt_b64") as string | null;
     const promptRaw = formData.get("prompt") as string | null;
     const userEmail = (formData.get("user_email") as string | null) ?? "";
+    const toolType = (formData.get("tool_type") as string | null) ?? null;
     const prompt: string | null = promptB64
       ? new TextDecoder("utf-8").decode(
           Uint8Array.from(atob(promptB64), (c) => c.charCodeAt(0))
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabase();
     const { data: job, error: insertErr } = await supabase
       .from("image_jobs")
-      .insert({ status: "pending", user_email: userEmail || null })
+      .insert({ status: "pending", user_email: userEmail || null, tool_type: toolType })
       .select("id")
       .single();
 
