@@ -57,12 +57,6 @@ export default function Home() {
             <span className="hidden max-w-[160px] truncate text-sm text-zinc-400 sm:inline">
               {user.email}
             </span>
-            <a
-              href="/history"
-              className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-sm text-zinc-300 backdrop-blur transition-all hover:border-violet-500/50 hover:text-violet-300"
-            >
-              히스토리
-            </a>
             <button
               onClick={handleLogout}
               className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-sm text-zinc-300 backdrop-blur transition-all hover:border-zinc-500 hover:text-white"
