@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       '<body style="margin:0;padding:0;background:#f4f4f5;">',
       '<div style="font-family:Arial,sans-serif;max-width:600px;margin:24px auto;padding:32px;background:#fff;border-radius:12px;border:1px solid #e4e4e7;">',
       // "SnapPage 새 문의가 도착했습니다"
-      '<h2 style="color:#7c3aed;margin:0 0 24px;">SnapPage &#49352; &#47928;&#51032;&#44032; &#46020;&#52856;&#54588;&#49845;&#45768;&#45796;</h2>',
+      '<h2 style="color:#7c3aed;margin:0 0 24px;">SnapPage &#49352; &#47928;&#51032;&#44032; &#46321;&#47197;&#46104;&#50632;&#49845;&#45768;&#45796;.</h2>',
       '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">',
       '<tr style="border-bottom:1px solid #f4f4f5;">',
       // "이름"
