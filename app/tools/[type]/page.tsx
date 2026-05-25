@@ -95,7 +95,6 @@ export default function ToolPage() {
   const [uploadPreview2, setUploadPreview2] = useState<string | null>(null);
   const [isDragging2, setIsDragging2] = useState(false);
   const inputRef2 = useRef<HTMLInputElement>(null);
-  const [t6ProductName, setT6ProductName] = useState("");
   const [t6Width, setT6Width] = useState("");
   const [t6Height, setT6Height] = useState("");
   const [t6ProductType, setT6ProductType] = useState("토트백");
@@ -208,11 +207,11 @@ export default function ToolPage() {
       "The product is not a design reference; it is the final product that must be preserved exactly.";
 
     const T6_PROMPT = isT6
-      ? `${prompt}\n\n제품명: ${t6ProductName}${
+      ? `${prompt}\n\n${
           t6Width || t6Height
-            ? `\n제품크기: 가로 ${t6Width || "-"}cm × 세로 ${t6Height || "-"}cm`
+            ? `제품크기: 가로 ${t6Width || "-"}cm × 세로 ${t6Height || "-"}cm\n`
             : ""
-        }\n제품 유형: ${t6ProductType}\n사용 장면: ${t6Scene}\n의상 분위기: ${t6Mood}\n배경: ${t6Background}\n이미지 용도: ${t6Usage}`
+        }제품 유형: ${t6ProductType}\n사용 장면: ${t6Scene}\n의상 분위기: ${t6Mood}\n배경: ${t6Background}\n이미지 용도: ${t6Usage}`
       : "";
 
     const activePrompt = isT4
@@ -814,18 +813,6 @@ export default function ToolPage() {
                 <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-5 flex flex-col gap-4">
                   <p className="text-sm font-semibold text-white">촬영 조건 선택</p>
                   <p className="text-xs text-zinc-500">각 항목을 선택하면 AI가 그에 맞는 모델샷을 생성합니다.</p>
-
-                  {/* 제품명: 텍스트 입력 */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-zinc-400">제품명</label>
-                    <input
-                      type="text"
-                      value={t6ProductName}
-                      onChange={(e) => setT6ProductName(e.target.value)}
-                      placeholder="제품명을 입력해 주세요"
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-                    />
-                  </div>
 
                   {/* 제품크기: 가로 × 세로 (선택) */}
                   <div className="flex flex-col gap-1.5">
