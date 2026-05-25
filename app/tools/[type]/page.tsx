@@ -7,6 +7,19 @@ import { supabase } from "@/lib/supabase";
 import { getToolByType } from "@/lib/tools-config";
 import PointInsufficientModal from "@/components/PointInsufficientModal";
 
+// prompt6.txt에서 "[옵션1 / 옵션2 / ...]" 형식의 선택 항목 파싱
+const parseT6Options = (text: string): Record<string, string[]> => {
+  const options: Record<string, string[]> = {};
+  text.split("\n").forEach((line) => {
+    const match = line.match(/^(.+?):\s*\[(.+?)\]/);
+    if (!match) return;
+    const key = match[1].trim();
+    const vals = match[2].split("/").map((v) => v.trim()).filter(Boolean);
+    if (vals.length > 1) options[key] = vals;
+  });
+  return options;
+};
+
 export default function ToolPage() {
   const router = useRouter();
   const params = useParams();
@@ -82,11 +95,15 @@ export default function ToolPage() {
   const [uploadPreview2, setUploadPreview2] = useState<string | null>(null);
   const [isDragging2, setIsDragging2] = useState(false);
   const inputRef2 = useRef<HTMLInputElement>(null);
+  const [t6ProductName, setT6ProductName] = useState("");
+  const [t6Width, setT6Width] = useState("");
+  const [t6Height, setT6Height] = useState("");
   const [t6ProductType, setT6ProductType] = useState("토트백");
   const [t6Scene, setT6Scene] = useState("손에 들고 있음");
-  const [t6Mood, setT6Mood] = useState("고급스러운");
+  const [t6Mood, setT6Mood] = useState("정장");
   const [t6Background, setT6Background] = useState("심플한 사무공간");
   const [t6Usage, setT6Usage] = useState("스마트스토어 상세페이지");
+  const [t6Options, setT6Options] = useState<Record<string, string[]>>({});
 
   // 인증 체크 + 기본 프롬프트 로드
   useEffect(() => {
@@ -104,6 +121,16 @@ export default function ToolPage() {
       .then((data) => {
         if (data.prompts?.[tool.promptIndex]) {
           setPrompt(data.prompts[tool.promptIndex]);
+        }
+        // T6: prompt6.txt에서 선택 항목 동적 파싱
+        if (isT6 && data.prompts?.[5]) {
+          const parsed = parseT6Options(data.prompts[5]);
+          setT6Options(parsed);
+          if (parsed["제품 유형"]?.[0]) setT6ProductType(parsed["제품 유형"][0]);
+          if (parsed["사용 장면"]?.[0]) setT6Scene(parsed["사용 장면"][0]);
+          if (parsed["의상 분위기"]?.[0]) setT6Mood(parsed["의상 분위기"][0]);
+          if (parsed["배경"]?.[0]) setT6Background(parsed["배경"][0]);
+          if (parsed["이미지 용도"]?.[0]) setT6Usage(parsed["이미지 용도"][0]);
         }
       })
       .catch(() => {});
@@ -181,7 +208,11 @@ export default function ToolPage() {
       "The product is not a design reference; it is the final product that must be preserved exactly.";
 
     const T6_PROMPT = isT6
-      ? `${prompt}\n\n제품 유형: ${t6ProductType}\n사용 장면: ${t6Scene}\n원하는 분위기: ${t6Mood}\n배경: ${t6Background}\n이미지 용도: ${t6Usage}`
+      ? `${prompt}\n\n제품명: ${t6ProductName}${
+          t6Width || t6Height
+            ? `\n제품크기: 가로 ${t6Width || "-"}cm × 세로 ${t6Height || "-"}cm`
+            : ""
+        }\n제품 유형: ${t6ProductType}\n사용 장면: ${t6Scene}\n의상 분위기: ${t6Mood}\n배경: ${t6Background}\n이미지 용도: ${t6Usage}`
       : "";
 
     const activePrompt = isT4
@@ -778,44 +809,56 @@ export default function ToolPage() {
                 </div>
               </div>
             ) : isT6 ? (
-              /* ── /tools/6 전용: 모델샷 드롭다운 선택 ── */
+              /* ── /tools/6 전용: 모델샷 드롭다운 선택 (prompt6.txt에서 동적 로드) ── */
               <div className="flex flex-1 flex-col gap-4" style={{ width: 500 }}>
                 <div className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-5 py-5 flex flex-col gap-4">
                   <p className="text-sm font-semibold text-white">촬영 조건 선택</p>
                   <p className="text-xs text-zinc-500">각 항목을 선택하면 AI가 그에 맞는 모델샷을 생성합니다.</p>
 
+                  {/* 제품명: 텍스트 입력 */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-zinc-400">제품명</label>
+                    <input
+                      type="text"
+                      value={t6ProductName}
+                      onChange={(e) => setT6ProductName(e.target.value)}
+                      placeholder="제품명을 입력해 주세요"
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
+
+                  {/* 제품크기: 가로 × 세로 (선택) */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-zinc-400">
+                      제품크기 <span className="text-zinc-600">(선택)</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={t6Width}
+                        onChange={(e) => setT6Width(e.target.value)}
+                        placeholder="가로(cm)"
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                      />
+                      <span className="shrink-0 text-sm text-zinc-500">×</span>
+                      <input
+                        type="number"
+                        value={t6Height}
+                        onChange={(e) => setT6Height(e.target.value)}
+                        placeholder="세로(cm)"
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 나머지 항목: prompt6.txt에서 동적 로드 */}
                   {[
-                    {
-                      label: "제품 유형",
-                      value: t6ProductType,
-                      setter: setT6ProductType,
-                      options: ["토트백", "핸드클러치", "카드지갑", "여권케이스", "키링"],
-                    },
-                    {
-                      label: "사용 장면",
-                      value: t6Scene,
-                      setter: setT6Scene,
-                      options: ["손에 들고 있음", "어깨에 메고 있음", "팔에 걸고 있음", "가방에 매달려 있음", "테이블 위에서 사용하는 장면"],
-                    },
-                    {
-                      label: "원하는 분위기",
-                      value: t6Mood,
-                      setter: setT6Mood,
-                      options: ["고급스러운", "자연스러운", "커리어우먼", "여행자", "한옥 감성", "공방 감성", "갤러리 분위기"],
-                    },
-                    {
-                      label: "배경",
-                      value: t6Background,
-                      setter: setT6Background,
-                      options: ["심플한 사무공간", "한옥 골목", "공방 내부", "카페", "호텔 로비", "흰 배경"],
-                    },
-                    {
-                      label: "이미지 용도",
-                      value: t6Usage,
-                      setter: setT6Usage,
-                      options: ["스마트스토어 상세페이지", "SNS 홍보", "썸네일", "배너", "제품 착용컷"],
-                    },
-                  ].map(({ label, value, setter, options }) => (
+                    { label: "제품 유형",   value: t6ProductType, setter: setT6ProductType, key: "제품 유형" },
+                    { label: "사용 장면",   value: t6Scene,       setter: setT6Scene,       key: "사용 장면" },
+                    { label: "의상 분위기", value: t6Mood,        setter: setT6Mood,        key: "의상 분위기" },
+                    { label: "배경",        value: t6Background,  setter: setT6Background,  key: "배경" },
+                    { label: "이미지 용도", value: t6Usage,       setter: setT6Usage,       key: "이미지 용도" },
+                  ].map(({ label, value, setter, key }) => (
                     <div key={label} className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-zinc-400">{label}</label>
                       <select
@@ -823,7 +866,7 @@ export default function ToolPage() {
                         onChange={(e) => setter(e.target.value)}
                         className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                       >
-                        {options.map((opt) => (
+                        {(t6Options[key] ?? []).map((opt) => (
                           <option key={opt} value={opt}>{opt}</option>
                         ))}
                       </select>
