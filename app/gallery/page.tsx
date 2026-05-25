@@ -2,7 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import GalleryGrid from "@/components/GalleryGrid";
 
-// 30초마다 재검증 (ISR 캐시)
 export const revalidate = 30;
 
 const TOTAL_SLOTS = 40;
@@ -19,6 +18,7 @@ async function fetchGalleryImages() {
     .eq("status", "done")
     .not("image_url", "is", null)
     .not("image_url", "like", "data:%")
+    .or("is_active.is.null,is_active.eq.true")
     .order("created_at", { ascending: false })
     .limit(40);
 

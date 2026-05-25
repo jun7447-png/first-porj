@@ -13,6 +13,7 @@ export async function GET() {
     .eq("status", "done")
     .not("image_url", "is", null)
     .not("image_url", "like", "data:%")
+    .or("is_active.is.null,is_active.eq.true")
     .order("created_at", { ascending: false })
     .limit(40);
 

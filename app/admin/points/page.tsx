@@ -138,20 +138,12 @@ export default function AdminPointsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090b] p-6 text-white">
+    <div className="p-6 text-white">
       <div className="mx-auto max-w-6xl">
         {/* 헤더 */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">포인트 관리</h1>
-            <p className="mt-1 text-sm text-zinc-500">전체 사용자 포인트 현황 및 충전</p>
-          </div>
-          <button
-            onClick={() => router.push("/")}
-            className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
-          >
-            ← 메인으로
-          </button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-white">포인트 관리</h1>
+          <p className="mt-1 text-sm text-zinc-500">전체 사용자 포인트 현황 및 충전</p>
         </div>
 
         {/* 검색 */}
@@ -278,6 +270,7 @@ export default function AdminPointsPage() {
       </div>
 
       {/* 충전 모달 */}
+
       {chargeTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
@@ -362,6 +355,6 @@ export default function AdminPointsPage() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
