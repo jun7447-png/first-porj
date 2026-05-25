@@ -6,17 +6,21 @@ import Link from "next/link";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import HowItWorks from "@/components/HowItWorks";
-import AuthModal from "@/components/AuthModal";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export default function Home() {
   const router = useRouter();
-  const [showAuth, setShowAuth] = useState(false);
-  const [pendingTool, setPendingTool] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    // 이메일 인증 링크가 루트로 잘못 리다이렉트된 경우 콜백 페이지로 이동
+    const hash = window.location.hash;
+    if (hash.includes("access_token")) {
+      router.replace(`/auth/callback${hash}`);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
@@ -34,47 +38,12 @@ export default function Home() {
     if (user) {
       router.push(`/tools/${toolType}`);
     } else {
-      setPendingTool(toolType);
-      setShowAuth(true);
+      window.dispatchEvent(new Event("openLoginModal"));
     }
-  };
-
-  const handleAuthSuccess = () => {
-    setShowAuth(false);
-    router.push(`/tools/${pendingTool ?? "1"}`);
-    setPendingTool(null);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
   };
 
   return (
     <main className="min-h-screen bg-[#09090b] text-white">
-      {/* 상단 고정 인증 버튼 */}
-      <div className="fixed right-4 top-4 z-40 flex items-center gap-3">
-        {user ? (
-          <>
-            <span className="hidden max-w-[160px] truncate text-sm text-zinc-400 sm:inline">
-              {user.email}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-sm text-zinc-300 backdrop-blur transition-all hover:border-zinc-500 hover:text-white"
-            >
-              로그아웃
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={() => { setPendingTool("1"); setShowAuth(true); }}
-            className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-sm text-zinc-300 backdrop-blur transition-all hover:border-zinc-500 hover:text-white"
-          >
-            로그인 / 회원가입
-          </button>
-        )}
-      </div>
-
       <Hero onStart={handleStart} />
 
       {/* 갤러리 버튼 — Features 위, 가로 전체 */}
@@ -93,13 +62,6 @@ export default function Home() {
 
       <Features />
       <HowItWorks />
-
-      {showAuth && (
-        <AuthModal
-          onClose={() => { setShowAuth(false); setPendingTool(null); }}
-          onSuccess={handleAuthSuccess}
-        />
-      )}
 
       {/* 문의하기 섹션 */}
       <section className="border-t border-zinc-800 px-6 py-16 text-center">

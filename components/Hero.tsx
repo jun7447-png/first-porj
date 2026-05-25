@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { TOOLS } from "@/lib/tools-config";
 
 // Tailwind purge 대응: 완전한 클래스 문자열만 사용 (동적 조합 금지)
@@ -20,7 +20,6 @@ interface HeroProps {
 
 export default function Hero({ onStart }: HeroProps) {
   const [previews, setPreviews] = useState<Record<string, string>>({});
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/preview-images")
@@ -33,34 +32,6 @@ export default function Hero({ onStart }: HeroProps) {
 
   return (
     <section className="relative flex flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-32 text-center">
-      {/* 라이트박스 */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <div
-            className="relative"
-            style={{ maxWidth: 800, width: "100%" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setLightboxUrl(null)}
-              className="absolute -right-3 -top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 shadow-lg transition-all hover:bg-zinc-700 hover:text-white"
-              aria-label="닫기"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <img
-              src={lightboxUrl}
-              alt="결과 이미지 확대보기"
-              className="w-full rounded-2xl border border-zinc-700 shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
 
       {/* 배경 글로우 */}
       <div className="absolute inset-0 -z-10">
@@ -96,7 +67,7 @@ export default function Hero({ onStart }: HeroProps) {
             <button
               key={tool.type}
               onClick={() => onStart(tool.type)}
-              className="group flex flex-col items-center gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 pb-4 pt-5 text-center transition-all hover:border-violet-500/50 hover:bg-zinc-800/80 hover:shadow-lg hover:shadow-violet-500/10"
+              className="hover-blink-border group flex flex-col items-center gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 pb-4 pt-5 text-center transition-all hover:bg-zinc-800/80 hover:shadow-lg hover:shadow-violet-500/10"
             >
               {/* 텍스트 영역 */}
               <span className="text-3xl transition-transform group-hover:scale-110">
@@ -113,12 +84,6 @@ export default function Hero({ onStart }: HeroProps) {
               <div
                 className="mt-1 w-full overflow-hidden rounded-xl"
                 style={{ aspectRatio: "1 / 1" }}
-                onClick={(e) => {
-                  if (thumbUrl) {
-                    e.stopPropagation();
-                    setLightboxUrl(thumbUrl);
-                  }
-                }}
               >
                 {thumbUrl ? (
                   <img
@@ -132,6 +97,19 @@ export default function Hero({ onStart }: HeroProps) {
                   </div>
                 )}
               </div>
+              <span style={{ fontSize: "11pt" }} className="mt-0.5 flex items-center justify-center gap-1 text-zinc-400">
+                Ai Snap image Go
+                <svg
+                  className="animate-blink-arrow"
+                  style={{ width: "11pt", height: "11pt" }}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </span>
             </button>
           );
         })}

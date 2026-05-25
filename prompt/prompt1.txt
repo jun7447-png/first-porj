@@ -1,5 +1,5 @@
 제품을 제외한 나머지 배경 삭제. 
 CLEAR WHITE 
-1600px*
+결과 이미지 가로 2400px*
 
 The product is not a design reference; it is the final product that must be preserved exactly.

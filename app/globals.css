@@ -16,3 +16,20 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+@keyframes blink-arrow {
+  0%, 100% { color: #EAB308; }
+  50%       { color: #22C55E; }
+}
+.animate-blink-arrow {
+  animation: blink-arrow 0.8s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes blink-border {
+  0%, 100% { border-color: #EAB308; }
+  50%       { border-color: #22C55E; }
+}
+.hover-blink-border:hover {
+  animation: blink-border 0.8s ease-in-out infinite;
+}

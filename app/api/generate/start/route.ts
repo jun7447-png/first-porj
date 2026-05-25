@@ -1,21 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { generateWithOpenAI, IMAGE_MODEL_ERROR } from "@/lib/image-generator";
+import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { IMAGE_GENERATION_POINT_COST } from "@/lib/points-config";
 import fs from "fs";
 import path from "path";
 
 export const maxDuration = 300;
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-  );
-}
-
 export async function POST(req: NextRequest) {
   try {
+    // JWT에서 userId 추출 (포인트 시스템용)
+    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+    let userId: string | null = null;
+
+    const supabase = getSupabaseAdmin();
+
+    if (token) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id ?? null;
+    }
+
+    // 포인트 잔액 확인 (userId가 있는 경우만)
+    if (userId) {
+      const { data: wallet } = await supabase
+        .from("point_wallet")
+        .select("balance")
+        .eq("user_id", userId)
+        .single();
+
+      const balance = wallet?.balance ?? 0;
+      if (balance < IMAGE_GENERATION_POINT_COST) {
+        return NextResponse.json(
+          { error: "INSUFFICIENT_POINTS", balance },
+          { status: 402 }
+        );
+      }
+    }
+
     const formData = await req.formData();
     const imageFile = formData.get("image") as File | null;
     const modelImageFile = formData.get("model_image") as File | null;
@@ -53,6 +76,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ fallback: true });
     }
 
+    // formData에서 userId 재사용 (토큰 없는 경우 폴백)
+    if (!userId) {
+      const formUserId = formData.get("user_id") as string | null;
+      if (formUserId) userId = formUserId;
+    }
+
     const bytes = await imageFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const mimeType = imageFile.type || "image/jpeg";
@@ -77,10 +106,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const supabase = getSupabase();
     const { data: job, error: insertErr } = await supabase
       .from("image_jobs")
-      .insert({ status: "pending", user_email: userEmail || null, tool_type: toolType })
+      .insert({ status: "pending", user_email: userEmail || null, user_id: userId || null, tool_type: toolType })
       .select("id")
       .single();
 
@@ -99,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     const jobId = job.id as string;
 
-    waitUntil(processJob(jobId, buffer, mimeType, fileName, prompt, buffer2, mimeType2, fileName2));
+    waitUntil(processJob(jobId, buffer, mimeType, fileName, prompt, buffer2, mimeType2, fileName2, userId ?? undefined));
 
     return NextResponse.json({ jobId });
   } catch (err: unknown) {
@@ -141,9 +169,10 @@ async function processJob(
   prompt: string,
   buffer2?: Buffer,
   mimeType2?: string,
-  fileName2?: string
+  fileName2?: string,
+  userId?: string
 ) {
-  const supabase = getSupabase();
+  const supabase = getSupabaseAdmin();
   try {
     await supabase
       .from("image_jobs")
@@ -163,11 +192,20 @@ async function processJob(
       .from("image_jobs")
       .update({ status: "done", image_url: imageUrl })
       .eq("id", jobId);
+
+    // 이미지 정상 생성 완료 후에만 포인트 차감
+    if (userId) {
+      await supabase.rpc("deduct_points", {
+        p_user_id: userId,
+        p_amount: IMAGE_GENERATION_POINT_COST,
+      });
+    }
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : IMAGE_MODEL_ERROR;
     await supabase
       .from("image_jobs")
       .update({ status: "error", error_text: errMsg })
       .eq("id", jobId);
+    // 실패 시 포인트 차감 없음
   }
 }

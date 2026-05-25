@@ -3,6 +3,8 @@
 해당 글자 라인의 불투명도60%의 흰색 띠 적용.
 업로드 이미지는 변형없이 배경이미지로만 사용.
 The product is not a design reference; it is the final product that must be preserved exactly.
+결과 이미지 가로 1600px*
+
 
 타이포그래피 예시 문구:  "올해의 인기 Pick"
 

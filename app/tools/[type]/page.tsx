@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getToolByType } from "@/lib/tools-config";
+import PointInsufficientModal from "@/components/PointInsufficientModal";
 
 export default function ToolPage() {
   const router = useRouter();
@@ -22,6 +23,9 @@ export default function ToolPage() {
   const [imageHistory, setImageHistory] = useState<string[]>([]); // 이전 생성 결과 (세션 임시)
   const [isDragging, setIsDragging] = useState(false);
   const [userEmail, setUserEmail] = useState("");
+  const [userId, setUserId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [showPointModal, setShowPointModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // /tools/4 전용: 강조문구 입력 (프롬프트 비노출)
@@ -89,6 +93,8 @@ export default function ToolPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace("/"); return; }
       setUserEmail(session.user.email ?? "");
+      setUserId(session.user.id);
+      setAccessToken(session.access_token);
     });
 
     if (!tool) { router.replace("/"); return; }
@@ -206,6 +212,7 @@ export default function ToolPage() {
       formData.append("image", safeFile);
       formData.append("prompt_b64", promptB64);
       if (userEmail) formData.append("user_email", userEmail);
+      if (userId) formData.append("user_id", userId);
       formData.append("tool_type", type);
 
       // T6: 모델 이미지 추가 (없으면 서버에서 model1.png 자동 사용)
@@ -218,6 +225,7 @@ export default function ToolPage() {
       // 3. 비동기 작업 시작 → jobId 즉시 반환
       const startRes = await fetch("/api/generate/start", {
         method: "POST",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         body: formData,
       });
 
@@ -229,6 +237,11 @@ export default function ToolPage() {
 
       const startData = await startRes.json();
 
+      // 포인트 부족
+      if (startData.error === "INSUFFICIENT_POINTS") {
+        setShowPointModal(true);
+        return;
+      }
       // 폴백 없음 — 모델 오류 시 지정 메시지만 표시
       if (startData.error) throw new Error(startData.error as string);
 
@@ -241,6 +254,8 @@ export default function ToolPage() {
         if (prev) setImageHistory((h) => [prev, ...h]);
         return imageUrl;
       });
+      // TopBar 포인트 잔액 갱신 이벤트 발송
+      window.dispatchEvent(new Event("pointsRefresh"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "생성 실패. 다시 시도해 주세요.");
     } finally {
@@ -252,6 +267,9 @@ export default function ToolPage() {
 
   return (
     <main className="min-h-screen bg-[#09090b] text-white">
+      {showPointModal && (
+        <PointInsufficientModal onClose={() => setShowPointModal(false)} />
+      )}
       {/* 라이트박스 — 현재 결과 및 히스토리 공용 */}
       {lightboxImage && (
         <div
@@ -287,24 +305,23 @@ export default function ToolPage() {
       </div>
 
       {/* 헤더 */}
-      <header className="flex items-center justify-between border-b border-zinc-800/60 px-6 py-4">
-        <a
-          href="/"
-          className="flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-zinc-300"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-          </svg>
-          메인으로
-        </a>
+      <header className="flex items-center border-b border-zinc-800/60 px-6 py-4">
+        <div className="flex-1">
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-zinc-300"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            메인으로
+          </a>
+        </div>
         <span className="flex items-center gap-2 text-2xl font-bold text-white" style={{ marginTop: 50, marginBottom: 50 }}>
           <span className="text-3xl">{tool.emoji}</span>
           {tool.name}
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs text-violet-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
-          AI 이미지 생성
-        </span>
+        <div className="flex-1" />
       </header>
 
       {/* 본문 */}

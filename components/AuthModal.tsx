@@ -16,6 +16,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -52,12 +53,19 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
   const switchMode = (next: "login" | "signup") => {
     setMode(next);
     setError("");
+    setPasswordConfirm("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    if (mode === "signup" && password !== passwordConfirm) {
+      setError("비밀번호가 일치하지 않습니다.");
+      setLoading(false);
+      return;
+    }
 
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -73,7 +81,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         onSuccess();
       }
     } else {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -81,7 +89,14 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         },
       });
       if (error) {
-        setError(error.message);
+        setError(
+          error.message === "User already registered"
+            ? "이미 가입된 이메일입니다. 로그인을 시도해 주세요."
+            : error.message
+        );
+      } else if (!data.user || (data.user.identities && data.user.identities.length === 0)) {
+        // 이미 가입된 이메일 — Supabase는 에러 없이 빈 identities 반환
+        setError("이미 가입된 이메일입니다. 로그인을 시도해 주세요.");
       } else {
         setMode("verify");
         setResendCooldown(RESEND_COOLDOWN);
@@ -262,6 +277,27 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
               className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             />
           </div>
+
+          {mode === "signup" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-400">비밀번호 확인</label>
+              <input
+                type="password"
+                required
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                placeholder="비밀번호를 다시 입력해 주세요"
+                className={`w-full rounded-xl border bg-zinc-900 px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:ring-2 focus:ring-violet-500/20 ${
+                  passwordConfirm && password !== passwordConfirm
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-zinc-700 focus:border-violet-500"
+                }`}
+              />
+              {passwordConfirm && password !== passwordConfirm && (
+                <p className="mt-1.5 text-xs text-red-400">비밀번호가 일치하지 않습니다.</p>
+              )}
+            </div>
+          )}
 
           {error && (
             <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
