@@ -103,6 +103,7 @@ export default function ToolPage() {
   const [t6Background, setT6Background] = useState("심플한 사무공간");
   const [t6Usage, setT6Usage] = useState("스마트스토어 상세페이지");
   const [t6Options, setT6Options] = useState<Record<string, string[]>>({});
+  const [t6Extra, setT6Extra] = useState("");
 
   // 인증 체크 + 기본 프롬프트 로드
   useEffect(() => {
@@ -211,7 +212,9 @@ export default function ToolPage() {
           t6Width || t6Height
             ? `제품크기: 가로 ${t6Width || "-"}cm × 세로 ${t6Height || "-"}cm\n`
             : ""
-        }제품 유형: ${t6ProductType}\n사용 장면: ${t6Scene}\n의상 분위기: ${t6Mood}\n배경: ${t6Background}\n이미지 용도: ${t6Usage}`
+        }제품 유형: ${t6ProductType}\n사용 장면: ${t6Scene}\n의상 분위기: ${t6Mood}\n배경: ${t6Background}\n이미지 용도: ${t6Usage}${
+          t6Extra.trim() ? `\n추가 요구사항: ${t6Extra.trim()}` : ""
+        }`
       : "";
 
     const activePrompt = isT4
@@ -339,6 +342,7 @@ export default function ToolPage() {
         <div className="flex-1">
           <a
             href="/"
+            onClick={(e) => { e.preventDefault(); window.location.href = "/"; }}
             className="inline-flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-zinc-300"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -859,10 +863,27 @@ export default function ToolPage() {
                       </select>
                     </div>
                   ))}
+
+                  {/* 추가 요구사항: 자유 입력 */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-zinc-400">
+                      추가 요구사항 <span className="text-zinc-600">(선택)</span>
+                    </label>
+                    <textarea
+                      value={t6Extra}
+                      onChange={(e) => setT6Extra(e.target.value)}
+                      placeholder="직접 입력한 내용이 추가 반영 됩니다."
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
                 </div>
 
                 <p className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-2.5 text-xs text-cyan-300">
                   💡 원본 제품 이미지와 모델 사진을 업로드한 뒤 조건을 선택하고 AI이미지생성을 클릭하세요. 모델 사진 미업로드 시 기본 모델이 사용됩니다.
+                </p>
+                <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-2.5 text-xs text-violet-300">
+                  💡 더 좋은 결과물을 만들고 싶다면 [배경지우기] 메뉴를 먼저 하시면 좋아요!
                 </p>
               </div>
             ) : (
